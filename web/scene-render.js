@@ -137,6 +137,7 @@
     const board=elem('aside','sc-board',next.wrapper);
     board.dataset.placement=board.dataset.kind='board';
     const heading=elem('strong','sc-board-term',board), zh=elem('span','sc-board-chinese',board), en=elem('span','sc-board-example',board);
+    for(const row of [heading,zh,en])elem('span','',row);
     const bubble=elem('aside','sc-bubble',next.wrapper);
     bubble.dataset.placement=bubble.dataset.kind='bubble';
     const name=elem('span','sc-bubble-name',bubble), english=elem('span','sc-bubble-en',bubble), chinese=elem('span','sc-bubble-zh',bubble);
@@ -329,9 +330,12 @@
       const erasing=board.erase>0?Math.ceil(points.length*(board.end-t)/board.erase):points.length;
       return points.slice(0,clamp(Math.min(writing,erasing),0,points.length)).join('');
     };
-    view.heading.textContent=form(board?.term);
-    view.zh.textContent=lang==='en'?'':form(board?.zh);
-    view.en.textContent=lang==='zh'?'':form(board?.en);
+    for(const [row,copy] of [[view.heading,board?.term||''],[view.zh,lang==='en'?'':board?.zh||''],[view.en,lang==='zh'?'':board?.en||'']]){
+      if(row.dataset.boardLine!==copy)row.dataset.boardLine=copy;
+      row.hidden=!copy;
+      const line=row.firstElementChild, value=form(copy);
+      if(line.textContent!==value)line.textContent=value;
+    }
   }
   function styleTransition(view,transition,t,old,current){
     const p=(reduced.matches||!transition||transition==='cut'||current.seconds<=0)?1:clamp((t-current.start)/current.seconds,0,1);

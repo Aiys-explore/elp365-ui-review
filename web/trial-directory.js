@@ -20,8 +20,8 @@
     '说明进度':'Sharing progress', '超市结账':'Grocery checkout', '询问付款':'Asking about payment',
     '优惠券':'Coupons', '租车':'Car rental', '确认替代方案':'Checking alternatives', '沟通保险':'Discussing insurance'
   };
-  const symbols = {'日常生存':'🏠', '职场商务':'💼', '差旅出行':'🧳', '社交情感':'💬'};
   const states = new WeakMap();
+  const sessions = new WeakMap();
   const safe = value => String(value ?? '').replace(/[&<>"']/g, char => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
   })[char]);
@@ -39,10 +39,24 @@
     : p.episodeFinished||((p.dialogueFinished||p.passes===3)&&(p.trialSubmitted||p.graded))||p.done?.length===7 ? 'done'
     : 'active';
   const clock = s=>{const i=Math.max(0,Math.floor(s));return Math.floor(i/60)+':'+String(i%60).padStart(2,'0');};
-  const localized = ([zh,en], mode) => mode === 'zh' ? zh : mode === 'en' ? en : `${zh} / ${en}`;
-  const options = (values, all) => [['',all], ...values.map(value=>[value,[value,english(value)]])];
+  const bilingual = ([zh,en]) => zh && en ? `${zh} / ${en}` : (zh || en);
+  const optionText = ([zh,en], mode) => mode === 'en' ? (en || zh) : (zh || en);
+  const lessonLinks = ({route,saved,isWhole,again}) => {
+    const primary = saved?.hasPosition
+      ? `<a class="td-link td-link-primary td-row-resume" data-continue-learning href="${route}/${isWhole?'whole':'core'}">${pair(again?'再听一遍':'接着听',again?'Play again':'Resume')}</a>`
+      : `<a class="td-link td-link-primary" href="${route}/core">${pair('开始学习','Start learning')}</a>`;
+    const compact = saved?.hasPosition
+      ? `<a class="td-link td-link-text" href="${route}/whole">${pair('听整期','Full episode')}</a>
+         <a class="td-link td-link-text" href="${route}/core">${pair('学核心对话','Core dialogue')}</a>`
+      : `<a class="td-link td-link-text" href="${route}/whole">${pair('听整期','Full episode')}</a>
+         <a class="td-link td-link-text" href="${route}/notes">${pair('看笔记','Lesson notes')}</a>`;
+    return `<div class="td-links">${primary}${compact}</div>`;
+  };
 
   function mount(main, {catalog, ready, feature, learning, activity, listening, resume}) {
+    sessions.get(main)?.();
+    const cleanups=[];
+    sessions.set(main,()=>{cleanups.splice(0).forEach(cleanup=>cleanup());});
     const available = new Set(ready);
     const records = [...catalog].sort((a,b)=>Number(available.has(b.id))-Number(available.has(a.id))
       || Number(b.id===feature)-Number(a.id===feature) || episodeNo(a)-episodeNo(b));
@@ -55,12 +69,16 @@
       - Math.max(learning?.[a.id]?.lastOpened||0, activity?.[a.id]||0);
     const unique = values => [...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-CN'));
     const filters = {
-      category:options(unique(records.map(row=>row.category)),['全部分类','All categories']),
-      scene:options(unique(records.flatMap(row=>row.tags ?? [])),['全部场景','All scenes']),
-      level:options(unique(records.map(row=>row.difficulty)),['全部难度','All levels']),
-      availability:[['',['全部状态','All statuses']], ...Object.entries(statuses)],
-      ...(hasLearning?{progress:[['',learningReady?['全部进度','All progress']:['暂未读取云端进度','Cloud progress unavailable']],
-        ['unfinished',['未学完','Unfinished']], ...Object.entries(learningLabels)]}:{})
+      category:{label:['分类','Category'],all:['全部分类','All categories'],
+        values:unique(records.map(row=>row.category)).map(value=>[value,[value,english(value)]])},
+      scene:{label:['场景','Scene'],all:['全部场景','All scenes'],
+        values:unique(records.flatMap(row=>row.tags ?? [])).map(value=>[value,[value,english(value)]])},
+      level:{label:['难度','Level'],all:['全部难度','All levels'],
+        values:unique(records.map(row=>row.difficulty)).map(value=>[value,[value,english(value)]])},
+      availability:{label:['试听状态','Availability'],all:['全部状态','All statuses'],values:Object.entries(statuses)},
+    ...(hasLearning?{progress:{label:['学习进度','Progress'],
+        all:learningReady?['全部进度','All progress']:['暂未读取云端进度','Cloud progress unavailable'],
+        values:[['unfinished',['未学完','Unfinished']], ...Object.entries(learningLabels)]}}:{})
     };
     const resetFilters = {query:'',category:'',scene:'',level:'',availability:'ready',progress:''};
     const state = states.get(main) ?? {...resetFilters, page:0, view:'list'};
@@ -70,7 +88,10 @@
       const terms = [row.title,row.titleZh,row.category,row.difficulty,...(row.tags ?? [])];
       return [row.id,normalize([...terms,...terms.map(english),row.id,episodeLabel(row)].join(' '))];
     }));
-    const label = ([zh,en],key) => `<label class="td-field">${pair(zh,en)}<select data-td-filter="${key}"></select></label>`;
+    const label = key => {
+      const def = filters[key];
+      return `<label class="td-field td-field-${key}">${pair(...def.label)}<select data-td-filter="${key}" aria-label="${safe(bilingual(def.label))}"></select></label>`;
+    };
     const recent = resume&&catalog.find(row=>row.id===resume.id);
     const isWhole=resume?.mode==='whole', t=resume?clock(resume.at):'', total=resume?clock(resume.duration):'';
     const continueCard=recent?`<section class="td-continue" aria-labelledby="td-continue-title">
@@ -89,17 +110,18 @@
         <p class="td-total">${pair(`${records.length} 期目录`,`${records.length} episodes`)}
           <span class="td-badge td-ready">${pair(`可试听 ${readyCount}`,`${readyCount} ready to try`)}</span>
           <span class="td-badge td-pending">${pair(`待精校 ${pendingCount}`,`${pendingCount} pending review`)}</span></p>
-        <p class="td-description">${pair('可试听的课程提供整期节目和核心对话。默认只看可试听的课程；可在筛选中查看全部目录。','Ready lessons include the full episode and core dialogue. Ready lessons are shown first. Use Filters to see the full directory.')}</p>
+        <details class="td-about"><summary class="td-about-summary">${pair('关于目录','About this directory')}</summary>
+          <p class="td-description">${pair('可试听的课程提供整期节目和核心对话。默认只看可试听的课程；可在筛选中查看全部目录。','Ready lessons include the full episode and core dialogue. Ready lessons are shown first. Use Filters to see the full directory.')}</p></details>
       </header>
       ${continueCard}
       <div class="td-controls${hasLearning?' td-with-progress':''}">
-        <label class="td-field td-query">${pair('搜索课程','Search lessons')}<input type="search" data-td-query></label>
-        <details class="td-filter-drawer"><summary>${pair('筛选','Filters')}</summary><div class="td-filter-fields">
-        ${label(['分类','Category'],'category')}
-        ${label(['场景','Scene'],'scene')}
-        ${label(['难度','Level'],'level')}
-        ${label(['试听状态','Availability'],'availability')}
-        ${hasLearning?label(['学习进度','Learning progress'],'progress'):''}</div></details>
+        <label class="td-field td-query">${pair('搜索课程','Search lessons')}<input type="search" data-td-query aria-label="${safe(bilingual(['搜索课程','Search lessons']))}"></label>
+        ${hasLearning?label('progress'):''}
+        <details class="td-more-filters"><summary>${pair('更多筛选','More filters')}</summary><div class="td-filter-fields">
+        ${label('category')}
+        ${label('scene')}
+        ${label('level')}
+        ${label('availability')}</div></details>
       </div>
       <div class="td-toolbar">
         <button type="button" class="td-ready-only" data-td-ready-only aria-pressed="true">${pair(`仅看可试听 (${readyCount} 期)`,`Ready only (${readyCount})`)}</button>
@@ -121,9 +143,26 @@
     const root = main.querySelector('.elp-trial-dir');
     const get = selector => root.querySelector(selector);
     const search = get('[data-td-query]');
-    const drawer=get('.td-filter-drawer');
+    const more=get('.td-more-filters');
     const wide=matchMedia('(min-width: 701px)');
-    drawer.open=wide.matches;
+    const wireDisclosure=(el,key)=>{
+      let synced=null;
+      const sync=()=>{
+        el.open=wide.matches?true:(state[key]??false);
+        synced=el.open;
+      };
+      const onToggle=()=>{
+        if(el.open!==synced&&!wide.matches)state[key]=el.open;
+      };
+      el.addEventListener('toggle',onToggle);
+      wide.addEventListener('change',sync);
+      sync();
+      return ()=>{
+        el.removeEventListener('toggle',onToggle);
+        wide.removeEventListener('change',sync);
+      };
+    };
+    cleanups.push(wireDisclosure(more,'moreOpen'));
     const results = get('.td-results');
     const pages = get('.td-pages');
     const count = get('.td-count');
@@ -139,13 +178,14 @@
       const next = languageSource.dataset.trialLanguage || 'dual';
       if (mode === next) return;
       mode = next;
-      Object.entries(filters).forEach(([key,choices])=>{
-        selects[key].replaceChildren(...choices.map(([value,names])=>new Option(localized(names,mode),value)));
+      Object.entries(filters).forEach(([key,def])=>{
+        const choices=[['',def.all],...def.values];
+        selects[key].replaceChildren(...choices.map(([value,names])=>new Option(optionText(names,mode),value)));
         selects[key].value = state[key];
       });
-      search.placeholder = localized(['例：EP040','e.g. EP040'],mode);
-      get('.td-views').setAttribute('aria-label',localized(['目录布局','Directory layout'],mode));
-      pages.setAttribute('aria-label',localized(['目录分页','Directory pages'],mode));
+      search.placeholder = mode === 'en' ? 'e.g. EP040' : '例：EP040';
+      get('.td-views').setAttribute('aria-label',bilingual(['目录布局','Directory layout']));
+      pages.setAttribute('aria-label',bilingual(['目录分页','Directory pages']));
     };
     const observer = new MutationObserver(()=>{
       if (!main.contains(root)) observer.disconnect();
@@ -153,6 +193,7 @@
     });
     observer.observe(languageSource,{attributes:true,attributeFilter:['data-trial-language']});
     observer.observe(main,{childList:true});
+    cleanups.push(()=>observer.disconnect());
 
     const rowMarkup = row => {
       const canStudy = available.has(row.id);
@@ -162,25 +203,24 @@
       const isWhole=saved?.mode==='whole';
       const again=!!(saved?.finished&&saved.at>=saved.duration-.1);
       const route = `#lesson/${encodeURIComponent(row.id)}`;
-      const thumb = state.view !== 'cards' ? '' : `<div class="td-thumb" aria-hidden="true">${canStudy && row.sceneImage
-        ? `<img src="${safe(row.sceneImage)}" loading="lazy" decoding="async" width="72" height="60" alt="">`
-        : `<span>${symbols[row.category] ?? '🎧'}</span>`}</div>`;
-      return `<li class="td-item" data-episode="${safe(row.id)}">${thumb}<div class="td-body">
+      const hasImage = canStudy && !!row.sceneImage;
+      const thumb = state.view !== 'cards' || !hasImage ? '' : `<div class="td-thumb" aria-hidden="true"><img src="${safe(row.sceneImage)}" loading="lazy" decoding="async" width="72" height="60" alt=""></div>`;
+      const titleZh = row.titleZh || `第 ${episodeNo(row)} 期 · ${row.title}`;
+      const links = canStudy ? lessonLinks({route,saved,isWhole,again})
+        : `<div class="td-links"><span class="td-coming" aria-disabled="true">${pair('即将上线','Coming soon')}</span></div>`;
+      return `<li class="td-item${hasImage?'':' td-item-no-thumb'}" data-episode="${safe(row.id)}">${thumb}<div class="td-body">
         <div class="td-item-head">
           <span class="td-episode">${episodeLabel(row)}</span>
           <span class="td-badge ${canStudy?'td-ready':'td-pending'}">${pair(...statuses[canStudy?'ready':'pending'])}</span>
           ${progressKey?`<span class="td-badge td-learning-${progressKey}" data-learning="${progressKey}">${pair(...learningLabels[progressKey])}</span>`:''}
         </div>
-        <h2 class="td-title">${pair(row.titleZh||(`第 ${episodeNo(row)} 期 · ${row.title}`),row.title)}</h2>
+        <h2 class="td-title"><span class="td-title-zh" lang="zh">${safe(titleZh)}</span><span class="td-title-en" lang="en">${safe(row.title)}</span></h2>
         <p class="td-meta">${[row.category,row.difficulty,...(row.tags ?? [])].filter(Boolean)
           .map(value=>pair(value,english(value))).join('<span class="td-separator" aria-hidden="true">·</span>')}</p>
         ${learningReady&&canStudy?`<p class="td-last-position">${position?
           `${pair(...(isWhole?['上次听到 · 整期','Last position · Full episode']:['上次听到 · 核心对话','Last position · Core dialogue']))} <strong>${safe(position)}</strong>`:
           pair('尚无听音记录','No listening yet')}</p>`:''}
-        ${canStudy?`<div class="td-links">
-          ${saved?.hasPosition?`<a data-continue-learning class="td-row-resume" href="${route}/${isWhole?'whole':'core'}">${pair(again?'再听一遍':'接着听',again?'Listen again':'Resume')}</a>`:''}
-          <a href="${route}/whole">${pair('听整期','Full episode')}</a>
-          <a href="${route}/core">${pair('学核心对话','Core dialogue')}</a></div>`:`<div class="td-links"><span class="td-coming" aria-disabled="true">${pair('即将上线','Coming soon')}</span></div>`}
+        ${links}
       </div></li>`;
     };
 

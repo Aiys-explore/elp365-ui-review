@@ -405,17 +405,19 @@
   let listenMode='dual';
   try{const v=localStorage.getItem('elp-listen-mode');if(listenModes.some(([key])=>key===v))listenMode=v;}catch{}
   let queuedCoreAction=null;
-  const modeBar=()=>`<div class="listen-modes" role="group" aria-label="字幕与盲听 / Captions and listening">${listenModes.map(([key,zh,en])=>
+  const modeBar=(visible=true)=>`<div class="listen-modes" role="group" aria-label="字幕与盲听 / Captions and listening" ${visible?'':'hidden'}>${listenModes.map(([key,zh,en])=>
     `<button type="button" data-listen-mode="${key}" aria-pressed="${listenMode===key}"><span data-i18n><span lang="zh">${zh}</span><span lang="en">${en}</span></span></button>`).join('')}</div>`;
   const trialHead=(row,other,url)=>`<div class="lesson-head trial-lesson-head">
     <div class="between"><span class="ep">${ep(row)}</span><nav class="learn-steps" aria-label="学习路径">
       ${[['whole','1 · 整期节目','Full episode'],['core','2 · 核心对话','Core dialogue']].map(([key,zh,en])=>`<a href="${trialUrl(row.id,key)}" ${active&&progress(active.id).episodeView===key?'aria-current="page"':''}><span data-i18n><span lang="zh">${zh}</span><span lang="en">${en}</span></span></a>`).join('')}</nav></div>
     ${trialTitle(row)}</div>`;
+  const currentCueIndex=(pos=player.currentTime||0)=>Math.max(0,active.course.cues.findLastIndex(cue=>pos>=cue.start));
   const trialCueList=course=>`<div class="cue-list" data-lang="dual" data-trial-lines>${course.cues.map((c,i)=>
-    `<button type="button" class="cue" data-action="cue" data-cue="${i}">
+    `<div class="cue-row"><button type="button" class="cue" data-action="cue" data-cue="${i}">
       <span class="tiny">${time(c.start)} · <span>${safe(c.speaker)}</span></span>
       <span class="en" lang="en" data-copy="en">${course.transcriptMode==='guide'?safe(c.en):Array.isArray(c.highlights)?window.ELP_SCENE.html(c.en,c.highlights,'en'):Studio.mark(c.en,course.episodeStudy?.highlights)}</span>
-      <span class="zh" lang="zh">${Array.isArray(c.highlights)?window.ELP_SCENE.html(c.zh,c.highlights,'zh'):safe(c.zh)}</span></button>`).join('')}</div>`;
+      <span class="zh" lang="zh">${Array.isArray(c.highlights)?window.ELP_SCENE.html(c.zh,c.highlights,'zh'):safe(c.zh)}</span></button>
+      <button type="button" class="cue-loop" data-action="loop" data-cue="${i}" data-loop-icon="true" aria-pressed="false" aria-label="循环第 ${i+1} 句">↻</button></div>`).join('')}</div>`;
   function renderTrialCore(){
     const {course,row,id}=active,p=progress(id),tab=savedTrialTab(p);
     if(tab==='practice')player.pause();
@@ -428,22 +430,28 @@
       <div class="audio-controls trial-audio">
         ${tab==='dialogue'&&course.sceneImage?`<img class="core-thumb" src="${safe(course.sceneImage)}" alt="" width="46" height="36">`:''}
         ${btn('播放','play','primary','data-player-toggle')}
+        ${btn('重听本句','cue','','data-core-current data-cue="'+currentCueIndex(p.trialAt||0)+'"')}
+        ${btn('单句循环','loop','','data-core-current data-cue="'+currentCueIndex(p.trialAt||0)+'" aria-pressed="false"')}
         <input data-seek type="range" min="0" max="1" value="0" step=".1" aria-label="播放位置">
         <span class="time" data-player-time>0:00</span>
         ${tab==='dialogue'?`<output class="core-cue-count" data-core-count></output>`:''}
       </div>
       <p class="audio-error" role="status" data-audio-error hidden></p>`;
     const content=tab==='dialogue'?`<section class="card stage-card trial-panel">
-      <h2 class="sr">${cueTitle}</h2>${audio}
+      <h2 class="sr">${cueTitle}</h2>
       ${actorMotion?`<div class="trial-scene" data-trial-stage ${blind?'hidden':''}>${Studio.officeScene(course.episodeStudy)}${Studio.dialogueLogo()}</div>`:''}
-      <div class="core-blind" data-core-blind ${blind?'':'hidden'}>${trialArt(course)}<p><span data-i18n><span lang="zh">盲听中 · 字幕已关闭</span><span lang="en">Blind listening · Captions off</span></span></p></div>
+      <div class="core-blind-notice" data-core-blind-notice ${blind?'':'hidden'}>
+        <p>当前为盲听模式，逐句字幕已隐藏。</p>
+        <button type="button" data-listen-mode="dual">恢复中英双语</button>
+      </div>
+      <div class="core-blind" data-core-blind ${blind?'':'hidden'}>${trialArt(course)}</div>
       ${guide?`<p class="tiny guide-notice">按段概括原音，不是逐字字幕。 <a href="${safe(upstream(row.textPath))}" target="_blank" rel="noopener">查看原始文稿</a></p>`:''}
       <div data-trial-transcript data-core-mode="${listenMode}" ${blind?'hidden':''}>${trialCueList(course)}</div>
     </section>`:tab==='words'?`<section class="card stage-card trial-panel"><h2>重点词组</h2>
-      ${audio}${trialVocabulary(course,true)}</section>`:outputBody(course,p,true);
-    main.innerHTML=trialHead(row,'听完整节目',trialUrl(id,'whole'))+modeBar()+`<nav class="row trial-core-tabs" aria-label="核心对话">${trialTabs.map(([key,label])=>
+      ${trialVocabulary(course,true)}</section>`:outputBody(course,p,true);
+    main.innerHTML=trialHead(row,'听完整节目',trialUrl(id,'whole'))+modeBar(tab==='dialogue')+`<div class="core-sticky-bar"><nav class="row trial-core-tabs" aria-label="核心对话">${trialTabs.map(([key,label])=>
       btn(key==='dialogue'?cueTitle:label,'trial-tab','',`data-trial-tab="${key}" aria-pressed="${tab===key}"`)).join('')}</nav>
-      ${content}${handoutActions(id,true)}`;
+      ${audio}</div>${content}${handoutActions(id,true)}`;
     if(actorMotion)window.ELP_HOST_MOTION?.prepareLayers(course.episodeStudy.sceneLayers);
     if(library.localHandout){
       const download=q('.trial-download a');
@@ -680,7 +688,7 @@
     if (seek) {seek.disabled=player.readyState<1;seek.max=duration; seek.value=pos; seek.setAttribute('aria-valuetext',time(pos));}
     const cueCounter=q('[data-core-count]');
     if(cueCounter){
-      const i=active.course.cues.findLastIndex(c=>pos>=c.start);
+      const i=currentCueIndex(pos);
       cueCounter.textContent=listenMode==='off'?'':`第 ${Math.max(1,i+1)} / ${active.course.cues.length} 句`;
     }
     const bar=q('[data-blind-bar]');
@@ -697,10 +705,14 @@
         }
       });
     }
+    qa('[data-core-current]').forEach(el=>{el.dataset.cue=currentCueIndex(pos);});
     qa('[data-action=loop]').forEach(el=>{
       const on=segment?.repeat && segment.index===Number(el.dataset.cue);
       el.setAttribute('aria-pressed',String(!!on));
-      el.textContent=on?'停止循环':'循环本段';
+      if(el.dataset.loopIcon){
+        el.textContent=on?'■':'↻';
+        el.setAttribute('aria-label',`${on?'停止循环':'循环'}第 ${Number(el.dataset.cue)+1} 句`);
+      }else el.textContent=on?'停止循环':el.hasAttribute('data-core-current')?'单句循环':'循环本段';
     });
   }
   function syncTrialActors(pos=player.currentTime||0){
@@ -867,10 +879,11 @@
     if(preference&&active){
       listenMode=preference.dataset.listenMode;
       try{localStorage.setItem('elp-listen-mode',listenMode);}catch{}
-      qa('[data-listen-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b===preference)));
-      const transcript=q('[data-trial-transcript]'),blind=q('[data-core-blind]');
+      qa('[data-listen-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.listenMode===listenMode)));
+      const transcript=q('[data-trial-transcript]'),blind=q('[data-core-blind]'),notice=q('[data-core-blind-notice]');
       if(transcript){transcript.hidden=listenMode==='off';transcript.dataset.coreMode=listenMode;}
       if(blind)blind.hidden=listenMode!=='off';
+      if(notice)notice.hidden=listenMode!=='off';
       syncTrialActors();
       const p=progress(active.id);p.trialCaptions=listenMode!=='off';
       if(p.episodeView==='whole')episodeAudio?.setSubtitleMode(listenMode);

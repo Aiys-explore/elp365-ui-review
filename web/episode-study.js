@@ -137,8 +137,8 @@
     <div class="ep-air" aria-hidden="true">ON AIR</div>
     <div class="ep-wall-lines" aria-hidden="true"></div>
     <div class="ep-chalkboard" data-ep-board hidden>
-      <strong lang="en" data-board-word></strong><span lang="zh" data-board-zh></span>
-      <span lang="en" data-board-example></span>
+      <strong lang="en" data-board-word><span></span></strong><span lang="zh" data-board-zh><span></span></span>
+      <span lang="en" data-board-example><span></span></span>
     </div>
     <div class="ep-studio-cast">
       ${hostNames(names).map(([id,name])=>`<div class="ep-host ${id}" data-host="${id}">
@@ -485,7 +485,6 @@
     }
     function placeExample(stage,node,visible){
       const dock=q('[data-ep-example-dock]');
-      dock.hidden=!visible&&stage.dataset.scene==='office';
       let fit=true;
       // Keep measuring the in-frame placement when the visible card is docked.
       if(visible&&exampleProbe?.parentNode===stage){
@@ -567,9 +566,12 @@
           const limit=reduce?glyphs.length:Math.min(glyphs.length,writing,erasing);
           return glyphs.slice(0,limit).join('');
         };
-        for(const [selector,value] of [['[data-board-word]',typed(word)],['[data-board-zh]',lang==='en'?'':typed(zh)],['[data-board-example]',lang==='zh'?'':typed(example)]]){
+        for(const [selector,copy] of [['[data-board-word]',word||''],['[data-board-zh]',lang==='en'?'':zh||''],['[data-board-example]',lang==='zh'?'':example||'']]){
           const node=board.querySelector(selector);
-          if(node.textContent!==value)node.textContent=value;
+          if(node.dataset.boardLine!==copy)node.dataset.boardLine=copy;
+          node.hidden=!copy;
+          const line=node.firstElementChild, value=typed(copy);
+          if(line.textContent!==value)line.textContent=value;
         }
       }
       const displayScene=ref?.scene.template??chapter.scene;
@@ -632,15 +634,17 @@
         blindOffice.hidden=lang!=='off'||stage.dataset.scene!=='office';
         stage.classList.toggle('ep-use-still',!blindOffice.hidden);
       }
-      const nextCopy=[cue?.start,term?.[0],lang,composed?.bubble].join('|');
+      const nextCopy=[cue?.start,term?.[0],lang,composed?.bubble,demo?.[4]||''].join('|');
       if(copyKey!==nextCopy){
         copyKey=nextCopy;
-        q('[data-ep-caption]').hidden=!cue||lang==='off'||!!composed?.bubble;
+        const exampleEnglish=String(demo?.[4]??'').trim();
+        const repeated=!!exampleEnglish&&String(cue?.en??'').trim()===exampleEnglish;
+        q('[data-ep-caption]').hidden=!cue||lang==='off'||!!composed?.bubble||(repeated&&lang==='en');
         const ranges=cue?.highlights||[];
         q('[data-ep-en]').innerHTML=!cue?'':(composed?.explicitHighlights||ranges.some(r=>r.lang==='en'))?window.ELP_SCENE.html(cue.en,ranges,'en'):
           mark(cue.en,[...(study.highlights||[]),...(term?[term[2]]:[])]);
         q('[data-ep-zh]').innerHTML=cue?window.ELP_SCENE?.html(cue.zh,ranges,'zh')??esc(cue.zh):'';
-        q('[data-ep-en]').hidden=lang==='zh';
+        q('[data-ep-en]').hidden=lang==='zh'||repeated;
         q('[data-ep-zh]').hidden=lang==='en';
         const note=q('[data-ep-note]');
         note.hidden=!cue?.note||lang==='off';
