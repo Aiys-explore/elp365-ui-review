@@ -41,7 +41,7 @@
       const last=Object.keys(queue).filter(id=>lessons[id]?.lastOpened)
         .sort((a,b)=>lessons[b].lastOpened-lessons[a].lastOpened)[0];
       const cloudLast=rows[0];
-      return {lessons,activity,cloudReady:true,last:last&&lessons[last].lastOpened>(cloudLast?.progress.lastOpened||cloudLast?.updated||0)?last:cloudLast?.id||''};
+      return {lessons,activity,userId,cloudReady:true,last:last&&lessons[last].lastOpened>(cloudLast?.progress.lastOpened||cloudLast?.updated||0)?last:cloudLast?.id||''};
     }catch(e){tell(e.message==='登录已过期，重新登录后可同步。'?e.message:'暂未连接云端，恢复连接后会同步本次学习。');return {lessons:{}};}
   }
   function persist(memory){

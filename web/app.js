@@ -92,6 +92,8 @@
   const clamp = (n,hi) => Number.isInteger(n) ? Math.max(0,Math.min(hi,n)) : 0;
   const KEY = 'scene-english:progress:v1';
   const cloud = window.ELP_PROGRESS;
+  const trajectory = window.ELP_TRAJECTORY;
+  const trajectoryView = window.ELP_TRAJECTORY_VIEW;
   let memory = {};
   if(!cloud)try { memory = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch {}
   if (typeof memory !== 'object' || Array.isArray(memory)) memory = {};
@@ -121,6 +123,18 @@
   let active = null, section = '', segment = null, countRound = false, reference = false;
   let rate = 1, lang = 'dual', audioError = '', frame = 0;
   const PAGE_SIZE = 18;
+  const coreTrajectory = window.ELP_TRAJECTORY_RECORDER?.watch({
+    media: player,
+    resolve: () => curated && active?.id && memory.lessons[active.id]?.episodeView === 'core'
+      ? {lessonId:active.id, mode:'core'} : null
+  });
+
+  function showTrajectory(snapshot = trajectory?.snapshot, status = trajectory?.status) {
+    if (!curated || !trajectoryView) return;
+    if (section === 'trajectory') trajectoryView.renderPage(main, snapshot, status);
+    else if (section === 'study') trajectoryView.mountStudy(main, snapshot, status);
+  }
+  trajectory?.subscribe(showTrajectory);
 
   function renderTrialHome() {
     if(series&&window.ELP_TRIAL_DIRECTORY){
@@ -649,6 +663,7 @@
     const p=progress(id);
     const selected=curated?(mode||'core'):['whole','core','notes'].includes(mode)?mode:'whole';
     if(p.episodeView==='core'&&selected!=='core'){
+      coreTrajectory?.flush();
       player.pause();segment=null;countRound=false;audioError='';
     }
     p.episodeView=selected;
@@ -687,7 +702,7 @@
         releaseTrialAudio();
         segment=null; countRound=false; reference=false; audioError='';
         active = {id,row:byId.get(id),course:lessons[id]};
-        episodeAudio?.bind(active.course.episodeStudy,p);
+        episodeAudio?.bind(active.course.episodeStudy,p,active.id);
         if(active.course.audio)player.src = active.course.audio;
         player.playbackRate = rate;
         player.load();
@@ -710,12 +725,19 @@
         releaseTrialAudio();active=null;player.load();
         segment=null; countRound=false; audioError='';
       }
-      section = !curated&&hash==='resources' ? 'resources' : !curated&&hash==='sounds' ? 'sounds' : 'study';
+      section = curated&&trajectoryView&&hash==='trajectory' ? 'trajectory'
+        : !curated&&hash==='resources' ? 'resources' : !curated&&hash==='sounds' ? 'sounds' : 'study';
       if (section==='resources') renderResources();
       else if (section==='sounds') renderSounds();
-      else if(curated)renderTrialHome();
+      else if (section==='trajectory') {
+        showTrajectory();
+      } else if(curated) {
+        renderTrialHome();
+        showTrajectory();
+      }
       else renderHome();
     }
+    trajectory?.showSummary(section==='study'||section==='trajectory');
     for (const [selector,current] of [['#nav-study',single?section!=='sounds':section!=='resources'],['#nav-resources',single?section==='sounds':section==='resources']]) {
       const link=q(selector,document);
       if (current) link?.setAttribute('aria-current','page');
@@ -731,6 +753,7 @@
     playMedia(true);
   }
   function releaseTrialAudio(){
+    coreTrajectory?.flush();
     saveCoreTime(true);
     player.pause();player.removeAttribute('src');
     active?.audioRequest?.abort();
@@ -886,6 +909,7 @@
   }
   function boundary() {
     if (segment && !player.paused && player.currentTime>=segment.end) {
+      coreTrajectory?.replay(segment.start,segment.end);
       if (segment.repeat) player.currentTime=segment.start;
       else {segment=null;player.pause();}
     }
@@ -926,7 +950,7 @@
   player.addEventListener('ended',()=>{
     if (!active) return;
     const p=progress(active.id);
-    if(curated){p.dialogueFinished=true;persist();}
+    if(curated){p.dialogueFinished=true;coreTrajectory?.completed('core_done');persist();}
     if (!curated&&p.step===0 && countRound) {
       p.passes=Math.min(3,p.passes+1);
       countRound=false;player.currentTime=0;persist();
@@ -988,6 +1012,7 @@
       p.trialAnswers=names.slice(0,-1).map(name=>String(form.get(name)).trim());
       p.trialRewrite=String(form.get('rewrite')).trim();
       p.trialSubmitted=true;persist();
+      trajectory?.record({type:'practice_done',lessonId:active.id,at:Date.now()});
       if(motionGuard.consumeOnce(`elp-motion:${active.id}:practice-feedback`))
         event.target.classList.add('is-motion-practice');
       items.forEach((item,i)=>{q('[data-result="'+i+'"]').innerHTML=gapFeedback(item,p.trialAnswers[i],true);});
@@ -1111,6 +1136,7 @@
   if(cloud?.enabled){
     cloud.load().then(data=>{
       Object.assign(memory,data);
+      trajectory?.connect(data.userId);
       hydrateMotionState();
       window.addEventListener('hashchange',()=>route(true));route();
     });

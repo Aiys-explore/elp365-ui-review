@@ -301,7 +301,7 @@
   }
 
   function create(main,audio,save) {
-    let study=null,state=null,view='off',clip=null,pending=null,loop=false,problem='';
+    let study=null,state=null,view='off',clip=null,pending=null,loop=false,problem='',boundLesson='';
     let frame=0,lastWrite=0,chapterKey='',copyKey='',exampleKey='',lastScrub=0,displayLanguage='dual';
     const q=s=>main.querySelector(s);
     const desktop=matchMedia('(min-width: 800px) and (hover: hover) and (pointer: fine)');
@@ -369,6 +369,16 @@
     };
     const showWords=()=>state?.episodeStickers!==false;
     const wholeRate=()=>!window.ELP_LIBRARY?.singleLesson&&[.8,1,1.25,1.5].includes(state?.episodeRate)?state.episodeRate:1;
+    const trajectory=window.ELP_TRAJECTORY_RECORDER?.watch({
+      media:audio,
+      fullscreenRoot:()=>q('.ep-watch'),
+      resolve(){
+        if(!study||!boundLesson)return null;
+        if(view==='whole')return{lessonId:boundLesson,mode:'whole'};
+        if(view==='core'&&clip)return{lessonId:boundLesson,mode:'core'};
+        return null;
+      }
+    });
     function record(force=false){
       if(view!=='whole'||!state||(!force&&performance.now()-lastWrite<1800))return;
       state.episodeAt=clamp(now());
@@ -386,6 +396,7 @@
       frame=0;
     }
     function clear(){
+      trajectory?.flush();
       releaseFullscreen();
       record(true);
       view='off';clip=null;pending=null;study=null;state=null;problem='';loop=false;
@@ -396,9 +407,9 @@
       audio.removeAttribute('src');
       audio.load();
     }
-    function bind(next,nextState){
+    function bind(next,nextState,lessonId){
       clear();
-      study=next;state=nextState;
+      study=next;state=nextState;boundLesson=String(lessonId||'');
       if(study){audio.src=study.audio;audio.load();}
     }
     function replaceTimeline(next){
@@ -410,6 +421,7 @@
     function setView(next){
       if(!study)return;
       if(view===next){releaseFullscreen();return;}
+      trajectory?.flush();
       record(true);
       releaseFullscreen();
       pause();
@@ -739,7 +751,7 @@
     });
     audio.addEventListener('seeked',sync);
     main.addEventListener('host-portrait-ready',sync);
-    audio.addEventListener('ended',()=>{if(view==='whole'&&state)state.episodeFinished=true;record(true);sync();});
+    audio.addEventListener('ended',()=>{if(view==='whole'&&state)state.episodeFinished=true;trajectory?.completed('whole_done');record(true);sync();});
     audio.addEventListener('error',()=>{
       if(!study)return;
       problem=study.audio.startsWith('https:')?'整期原音读取失败。请检查能否访问 GitHub，再刷新页面重试。':
