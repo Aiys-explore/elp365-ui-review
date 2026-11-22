@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="ELP365 · 用真实场景练英语。">
+  <meta name="theme-color" content="#fff8ec">
+  <link rel="icon" type="image/webp" href="./assets/elp365-logo.webp">
+  <title>ELP365 · 私人学习室</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./episode-study.css">
+  <script src="./library.js" defer></script>
+  <script src="./host-motion.js" defer></script>
+  <script src="./scene-render.js" defer></script>
+  <script src="./episode-study.js" defer></script>
+  <script src="./trial-audio.js" defer></script>
+  <script src="./ep040-language.js" defer></script>
+  <script src="./trial-directory.js" defer></script>
+  <script src="./member-progress.js" defer></script>
+  <script src="./app.js" defer></script>
+  <link rel="stylesheet" href="./trial-directory.css">
+  <script src="./account.js" defer></script>
+  <link rel="stylesheet" href="./scene-render.css">
+  <link rel="stylesheet" href="./member.css">
+  <link rel="stylesheet" href="./brand.css">
+</head>
+<body>
+  <a class="skip" href="#content">跳到主要内容</a>
+  <header class="mast">
+    <div class="shell mast-inner">
+      <a class="brand elp365-brand" href="#study" aria-label="ELP365">
+        <span class="elp365-book" aria-hidden="true"><img src="./assets/elp365-logo.webp" alt=""></span>
+        <span class="elp365-wordmark" aria-hidden="true"><img src="./assets/elp365-logo.webp" alt=""></span>
+      </a>
+      <nav class="main-nav" aria-label="主导航">
+        <a id="nav-study" href="#study">学习</a>
+        <a id="nav-resources" href="#resources">资源台账</a>
+      </nav>
+      <div id="account-nav" hidden><a class="member-link" href="/me"><img width="24" height="24" alt="" data-account-avatar hidden><span>我的学习</span><span class="member-nav-name" data-account-name></span></a> <a href="/admin" data-admin hidden>管理后台</a> <button type="button">退出</button></div>
+    </div>
+  </header>
+  <main id="content" class="shell" tabindex="-1"><p class="loading">正在打开学习室…</p></main>
+  <footer class="shell site-foot"><span id="member-sync" role="status">登录后同步学习进度</span></footer>
+  <audio id="episode-audio" preload="metadata"></audio>
+  <audio id="episode-full-audio" preload="metadata"></audio>
+  <noscript>此学习室需要启用 JavaScript。</noscript>
+</body>
+</html>

@@ -1,0 +1,60 @@
+.elp365-brand {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: .3rem;
+  min-height: 2.75rem;
+}
+.elp365-brand :is(.elp365-book, .elp365-wordmark) {
+  position: relative;
+  display: block;
+  flex: none;
+  overflow: hidden;
+  /* Feather the ivory margins so the two artwork crops sit on the page. */
+  mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent),
+              linear-gradient(to bottom, transparent, black 4%, black 96%, transparent);
+  mask-composite: intersect;
+}
+.elp365-brand img {
+  position: absolute;
+  display: block;
+  max-width: none;
+  height: auto;
+}
+.elp365-book {
+  width: 3.25rem;
+  aspect-ratio: 940 / 823;
+}
+.elp365-book img {
+  width: 133.405%;
+  left: -17.021%;
+  top: -6.318%;
+}
+.elp365-wordmark {
+  width: 7.35rem;
+  aspect-ratio: 1096 / 306;
+}
+.elp365-wordmark img {
+  width: 114.416%;
+  left: -7.482%;
+  top: -282.68%;
+}
+.account-card .elp365-login-logo {
+  display: block;
+  width: min(100%, clamp(9rem, 27dvh, 13.75rem));
+  height: auto;
+  margin: 0 auto .7rem;
+  border-radius: .9rem;
+}
+.account-card #auth-help:empty { display: none; }
+.mast-inner:has(.elp365-brand) {
+  flex-wrap: wrap;
+}
+@media (max-width: 650px) {
+  .elp365-book { width: 2.6rem; }
+  .elp365-wordmark { width: 5.9rem; }
+}
+@media (max-width: 365px) {
+  .elp365-book { width: 2.05rem; }
+  .elp365-wordmark { width: 5.1rem; }
+}

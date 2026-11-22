@@ -1,0 +1,46 @@
+[data-composed=true]>[data-ep-studio],[data-composed=true]>[data-ep-office]{display:none!important}
+[data-composed=true]{aspect-ratio:3/2;max-height:none!important;background:#201a23!important;color:#32251f}
+.sc-composed,.sc-frame,.sc-background{position:absolute;inset:0;width:100%;height:100%}
+.sc-composed{isolation:isolate;overflow:hidden}
+.sc-composed[hidden]{display:none!important}
+[data-ep-stage][data-sc-measure]>[data-ep-studio],[data-ep-stage][data-sc-measure]>[data-ep-office]{display:block!important;visibility:hidden!important;position:absolute!important;inset:0;width:100%;height:auto}
+[data-sc-measure] .ep-host{transition:none!important}
+[data-sc-measure] .ep-scene-puppet{--puppet-lift:0px!important;--puppet-turn:0deg!important}
+[data-composed=reference] .sc-composed{z-index:7;pointer-events:none}
+[data-composed=reference] .sc-frame>:not(.sc-bubble){display:none!important}
+.sc-frame{transform-origin:center 48%;isolation:isolate}
+.sc-background{object-fit:cover;pointer-events:none}
+.sc-background[hidden],.sc-wall[hidden]{display:none!important}
+.sc-formal-studio{background:radial-gradient(ellipse at 48% 50%,#fff4d7 8%,#fae2bb 72%)}
+.sc-piece{position:absolute;transform:translate(-50%,-100%) var(--sc-move,none);transform-origin:50% 92%;pointer-events:none}
+.sc-actor{z-index:3;transform:translate(-50%,-100%) var(--sc-move,rotate(0))}
+.sc-prop{z-index:4;transform:translate(-50%,-50%)}
+.sc-desk{z-index:5}
+.sc-piece .sc-image{width:100%;height:auto;display:block;filter:drop-shadow(0 4px 3px #30202033)}
+.sc-cast-sized .sc-image{position:absolute;bottom:0;left:50%;height:100%;width:auto;max-width:none;transform:translateX(-50%);pointer-events:none}
+.sc-artwork{position:relative;width:100%;height:100%;transform-origin:center}
+.sc-artwork .sc-native-prop{position:absolute;top:0;left:0;right:auto;bottom:auto;width:100%;height:100%;margin:0}
+.sc-artwork .ep-air.sc-native-prop{display:grid;place-items:center;padding:0}
+.sc-artwork .ep-mic.sc-native-prop{transform:rotate(-6deg)}
+.sc-piece[data-placement=mic-right] .ep-mic.sc-native-prop{transform:rotate(6deg)}
+.sc-piece .sc-host-image{height:auto;aspect-ratio:3/4}
+.sc-piece .sc-host-right img{left:-100%}
+.sc-board{position:absolute;z-index:2;top:17%;left:21%;width:58%;min-height:46%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.2em;padding:3%;border:clamp(2px,.6vw,7px) solid #bd8351;border-radius:4%;background:#234039;color:#fff6d4;text-align:center;font-size:clamp(.62rem,2.8vw,1.1rem);overflow-wrap:anywhere}
+.sc-board[hidden],.sc-frame[hidden],.sc-bubble[hidden]{display:none!important}
+.sc-board strong{font-size:1.35em;color:#ffe1a1;min-height:1.15em}
+.sc-board{transform:translate(-50%,-50%)}
+.sc-board-chinese{font-size:1.16em}
+.sc-board-example{font-weight:400;font-style:italic}
+.sc-bubble{position:absolute;z-index:7;min-width:26%;width:max-content;max-width:62%;transform:translateX(-50%);padding:.45em .67em;border:1px solid #966e50;border-radius:.7em;background:#fffaf3;color:#342721;font-size:clamp(.62rem,2.6vw,.96rem);box-shadow:1px 2px #684d443d;display:grid;gap:.17em;overflow-wrap:anywhere}
+.sc-bubble::after{content:'';position:absolute;top:100%;left:49%;border:7px solid transparent;border-top-color:#fffaf3}
+.sc-follow-bubble:not(.sc-bubble-low){transform:translate(-50%,-100%)}
+.sc-follow-bubble::after{left:var(--sc-tail,50%);transform:translateX(-50%)}
+.sc-follow-bubble.sc-bubble-low::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#fffaf3}
+.sc-bubble-low{transform:translate(-50%,-12%)}
+.sc-placed-bubble{max-width:95%;min-width:0;transform:translate(-50%,-50%)}
+.sc-bubble-name{font-size:.7em;color:#744b35;font-weight:750}
+.sc-bubble-en{font-weight:730}
+.sc-bubble [hidden]{display:none!important}
+.scene-emphasis{font-weight:850;border-radius:.23em;padding:0 .13em;background:#ffdda0;color:#482b15}
+[data-composed=true]>[data-ep-example]{z-index:8}
+[data-ep-example].ep-card-placed{position:absolute;margin:0;max-width:100%;transform:translate(-50%,-50%);rotate:none}

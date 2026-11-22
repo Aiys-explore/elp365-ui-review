@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录 · ELP365</title><link rel="icon" type="image/webp" href="/assets/elp365-logo.webp"><link rel="stylesheet" href="/management.css"><link rel="stylesheet" href="/brand.css"><script src="/account.js" defer></script></head>
+<body class="manage login"><main id="account" class="mg-card account-card"><img class="elp365-login-logo" src="/assets/elp365-logo.webp" width="1254" height="1254" alt="ELP365"><h1 id="auth-title">登录学习室</h1>
+<nav class="mg-tabs" aria-label="账号入口"><button type="button" data-mode="login">登录</button><button type="button" data-mode="register">注册</button></nav>
+<form id="account-form"><label>用户名<input name="username" autocomplete="username" required maxlength="32"></label>
+<label>密码<input id="password" name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
+<label id="invite" hidden>邀请码<input name="code" type="password" autocomplete="off" maxlength="256" placeholder="输入原来的试学密码"></label>
+<p id="auth-help" class="mg-muted"></p><p id="account-status" class="mg-message" role="status"></p><button class="mg-primary" id="auth-submit">登录</button></form>
+</main></body></html>
