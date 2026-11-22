@@ -123,6 +123,11 @@
   let active = null, section = '', segment = null, countRound = false, reference = false;
   let rate = 1, lang = 'dual', audioError = '', frame = 0;
   const PAGE_SIZE = 18;
+  const coreTrajectory = window.ELP_TRAJECTORY_RECORDER?.watch({
+    media: player,
+    resolve: () => curated && active?.id && memory.lessons[active.id]?.episodeView === 'core'
+      ? {lessonId:active.id, mode:'core'} : null
+  });
 
   function showTrajectory(snapshot = trajectory?.snapshot, status = trajectory?.status) {
     if (!curated || !trajectoryView) return;
@@ -658,6 +663,7 @@
     const p=progress(id);
     const selected=curated?(mode||'core'):['whole','core','notes'].includes(mode)?mode:'whole';
     if(p.episodeView==='core'&&selected!=='core'){
+      coreTrajectory?.flush();
       player.pause();segment=null;countRound=false;audioError='';
     }
     p.episodeView=selected;
@@ -696,7 +702,7 @@
         releaseTrialAudio();
         segment=null; countRound=false; reference=false; audioError='';
         active = {id,row:byId.get(id),course:lessons[id]};
-        episodeAudio?.bind(active.course.episodeStudy,p);
+        episodeAudio?.bind(active.course.episodeStudy,p,active.id);
         if(active.course.audio)player.src = active.course.audio;
         player.playbackRate = rate;
         player.load();
@@ -747,6 +753,7 @@
     playMedia(true);
   }
   function releaseTrialAudio(){
+    coreTrajectory?.flush();
     saveCoreTime(true);
     player.pause();player.removeAttribute('src');
     active?.audioRequest?.abort();
@@ -902,6 +909,7 @@
   }
   function boundary() {
     if (segment && !player.paused && player.currentTime>=segment.end) {
+      coreTrajectory?.replay(segment.start,segment.end);
       if (segment.repeat) player.currentTime=segment.start;
       else {segment=null;player.pause();}
     }
@@ -942,7 +950,7 @@
   player.addEventListener('ended',()=>{
     if (!active) return;
     const p=progress(active.id);
-    if(curated){p.dialogueFinished=true;persist();}
+    if(curated){p.dialogueFinished=true;coreTrajectory?.completed('core_done');persist();}
     if (!curated&&p.step===0 && countRound) {
       p.passes=Math.min(3,p.passes+1);
       countRound=false;player.currentTime=0;persist();
@@ -1004,6 +1012,7 @@
       p.trialAnswers=names.slice(0,-1).map(name=>String(form.get(name)).trim());
       p.trialRewrite=String(form.get('rewrite')).trim();
       p.trialSubmitted=true;persist();
+      trajectory?.record({type:'practice_done',lessonId:active.id,at:Date.now()});
       if(motionGuard.consumeOnce(`elp-motion:${active.id}:practice-feedback`))
         event.target.classList.add('is-motion-practice');
       items.forEach((item,i)=>{q('[data-result="'+i+'"]').innerHTML=gapFeedback(item,p.trialAnswers[i],true);});
