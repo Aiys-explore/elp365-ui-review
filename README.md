@@ -1,6 +1,16 @@
 # ELP365 学员端源码审阅
 
-这是 ELP365 学员端前端源码的审阅快照，取自原项目提交 `877212a`。表中列出各页面的阅读入口。
+这是 ELP365 学员端前端源码的审阅快照，取自原项目提交 `877212a`。免登录预览复用同一套学员端页面和播放器。
+
+| 预览页面 | 链接 |
+| --- | --- |
+| 学员首页 | [继续学习、进度筛选、列表和卡片](https://fundops-notes.github.io/elp365-ui-review/web/preview.html#study) |
+| 整期播放器 | [演播室、场景对话、双语字幕和全屏](https://fundops-notes.github.io/elp365-ui-review/web/preview.html#lesson/ep-040/whole) |
+| 核心对话 | [逐句重听、词组和练习](https://fundops-notes.github.io/elp365-ui-review/web/preview.html#lesson/ep-040/core) |
+
+[复制给审阅 Agent 的提示词](REVIEW-PROMPT.md)
+
+预览使用自编学习内容、合成语音和示例场景，展示三种学习状态的条目共用一组示例内容。学习记录存于当前浏览器，页脚有「重置示例进度」按钮。登录页的 HTML 与样式可直接审阅。
 
 | 页面 | 代码 | 样式 |
 | --- | --- | --- |
@@ -9,6 +19,4 @@
 | 整期播放器 | [播放器](web/episode-study.js)、[场景渲染](web/scene-render.js)、[角色动作](web/host-motion.js) | [播放器](web/episode-study.css)、[场景](web/scene-render.css) |
 | 核心对话学习页 | [逐句字幕、词组与练习](web/app.js#L419)、[片段播放](web/trial-audio.js) | [通用样式](web/style.css)、[播放器样式](web/episode-study.css) |
 
-正式页面运行时需要课程数据、媒体资源和账号服务。这个快照提供 HTML、CSS 和 JavaScript，可用于代码审阅。涉及视觉呈现和浏览器行为的结论，可标为待运行验证。
-
-审阅时请比较桌面宽屏与 390px 手机视口，检查信息层级、找课流程、播放器控制、字幕和单句重听。已知现象是电脑进入全屏后，部分人物或道具没有随着舞台一起放大。请沿播放器的全屏样式和场景渲染逻辑，检查背景、人物、道具、黑板和例句卡如何计算尺寸和位置，并给出保持宽高比的修改建议。每条意见附文件和行号，说明影响和验收方法。
+全屏复现时，用桌面 Chrome 打开整期播放器，暂停并把进度拖到约 0:02，再点「全屏」。在 1440 × 1100 的测试视口里，舞台由 778 px 增至 1386 px，Marco 的容器仍为 192 px，话筒的可见宽度仍为 37 px。进度拖到 0:12 可比较分层场景角色，0:28 可看黑板，0:38 可看例句卡。缩放问题可从 `web/episode-study.css` 和 `web/scene-render.js` 入手。

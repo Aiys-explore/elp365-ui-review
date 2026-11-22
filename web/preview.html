@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ELP365 · 学员端审阅预览</title>
+  <link rel="icon" href="./assets/elp365-logo.webp">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./episode-study.css">
+  <link rel="stylesheet" href="./trial-directory.css">
+  <link rel="stylesheet" href="./scene-render.css">
+  <link rel="stylesheet" href="./member.css">
+  <link rel="stylesheet" href="./brand.css">
+  <script src="./preview-fixtures/recording.js" defer></script>
+  <script src="./preview-fixtures/demo.js" defer></script>
+  <script src="./host-motion.js" defer></script>
+  <script src="./scene-render.js" defer></script>
+  <script src="./episode-study.js" defer></script>
+  <script src="./trial-audio.js" defer></script>
+  <script src="./ep040-language.js" defer></script>
+  <script src="./trial-directory.js" defer></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#content">跳到主要内容</a>
+  <header class="mast">
+    <div class="shell mast-inner">
+      <a class="brand elp365-brand" href="#study" aria-label="ELP365">
+        <span class="elp365-book" aria-hidden="true"><img src="./assets/elp365-logo.webp" alt=""></span>
+        <span class="elp365-wordmark" aria-hidden="true"><img src="./assets/elp365-logo.webp" alt=""></span>
+      </a>
+      <nav class="main-nav" aria-label="主导航">
+        <a id="nav-study" href="#study">学习</a>
+        <a id="nav-resources" href="#resources">资源台账</a>
+      </nav>
+    </div>
+  </header>
+  <p class="shell tiny">设计审阅预览 · 示例课程、合成英语配音与本机学习记录</p>
+  <main id="content" class="shell" tabindex="-1"><p class="loading">正在打开学习室…</p></main>
+  <footer class="shell site-foot"><span id="member-sync" role="status">示例进度存于当前浏览器</span> · <button type="button" id="reset-demo">重置示例进度</button></footer>
+  <audio id="episode-audio" preload="metadata"></audio>
+  <audio id="episode-full-audio" preload="metadata"></audio>
+  <noscript>此学习室需要启用 JavaScript。</noscript>
+</body>
+</html>
