@@ -143,6 +143,7 @@
 职场|Workplace
 接话|Reply
 自检|Self-check
+是否说清楚请对方看什么？|Did you specify what you want them to review?
 同事|Coworker
 另一位同事|Another coworker
 只想问洗手间位置，对方看起来很忙。|You just need the restroom, and the other person looks busy.

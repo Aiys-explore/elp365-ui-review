@@ -39,8 +39,11 @@
     : p.episodeFinished||((p.dialogueFinished||p.passes===3)&&(p.trialSubmitted||p.graded))||p.done?.length===7 ? 'done'
     : 'active';
   const clock = s=>{const i=Math.max(0,Math.floor(s));return Math.floor(i/60)+':'+String(i%60).padStart(2,'0');};
+  const clamp01 = value => Math.min(1,Math.max(0,Number(value) || 0));
   const bilingual = ([zh,en]) => zh && en ? `${zh} / ${en}` : (zh || en);
   const optionText = ([zh,en], mode) => mode === 'en' ? (en || zh) : (zh || en);
+  const checkMark = '<span class="td-complete-mark" aria-hidden="true"><svg class="elp-check" viewBox="0 0 24 24" width="14" height="14" focusable="false" role="presentation"><path class="elp-check-path" d="M4 12.5 L9.5 18 L20 6.5"/></svg></span>';
+  const progressTrack = '<div class="td-progress-track" aria-hidden="true"><div class="td-progress-fill"></div></div>';
   const lessonLinks = ({route,saved,isWhole,again}) => {
     const primary = saved?.hasPosition
       ? `<a class="td-link td-link-primary td-row-resume" data-continue-learning href="${route}/${isWhole?'whole':'core'}">${pair(again?'再听一遍':'接着听',again?'Play again':'Resume')}</a>`
@@ -53,7 +56,7 @@
     return `<div class="td-links">${primary}${compact}</div>`;
   };
 
-  function mount(main, {catalog, ready, feature, learning, activity, listening, resume}) {
+  function mount(main, {catalog, ready, feature, learning, activity, listening, resume, motionFor}) {
     sessions.get(main)?.();
     const cleanups=[];
     sessions.set(main,()=>{cleanups.splice(0).forEach(cleanup=>cleanup());});
@@ -65,6 +68,51 @@
     const hasLearning = learning!==undefined;
     const learningReady = hasLearning && learning!==null;
     const progressFor = id => lessonStatus(learning?.[id]);
+    const ratioFor = id => {
+      if (!learningReady) return 0;
+      if (progressFor(id)==='done') return 1;
+      const saved = listening?.(id);
+      return saved?.hasPosition && saved.duration>0 ? clamp01(saved.at/saved.duration) : 0;
+    };
+    /* The app owns the motion decision, the one-shot consumption and the aria-live region.
+       The directory only renders the matching state and never replays a played motion. */
+    const motionResults = new Map();
+    const playedMotion = new Set();
+    const resolveMotion = id => {
+      if (typeof motionFor!=='function') return null;
+      if (!motionResults.has(id)) {
+        let result = null;
+        try { result = motionFor(id); } catch { result = null; }
+        motionResults.set(id, result && typeof result==='object'
+          && ['complete','start','advance'].includes(result.type) ? result : null);
+      }
+      const result = motionResults.get(id);
+      if (!result) return null;
+      const resting = ratioFor(id);
+      const to = Number.isFinite(result.to) ? clamp01(result.to) : resting;
+      const rawFrom = Number.isFinite(result.from) ? clamp01(result.from)
+        : (result.type==='complete' ? Math.max(0,to-0.15) : 0);
+      return {
+        result,
+        from: Math.min(rawFrom,to),
+        to
+      };
+    };
+    const motionState = (id, kind) => {
+      const resting = ratioFor(id);
+      const motion = resolveMotion(id);
+      if (!motion) return {cls:'', style:`--progress-to:${resting.toFixed(3)}`, check:false};
+      const key = `${kind}:${id}:${motion.result.type}`;
+      const first = !playedMotion.has(key);
+      playedMotion.add(key);
+      const {result,from,to} = motion;
+      const cls = result.reduced ? ' is-motion-static' : (first ? ` is-motion-${result.type}` : '');
+      return {
+        cls,
+        style:`--progress-to:${to.toFixed(3)};--progress-from:${from.toFixed(3)}`,
+        check: result.type==='complete'
+      };
+    };
     const recentFirst = (a,b) => Math.max(learning?.[b.id]?.lastOpened||0, activity?.[b.id]||0)
       - Math.max(learning?.[a.id]?.lastOpened||0, activity?.[a.id]||0);
     const unique = values => [...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-CN'));
@@ -94,14 +142,16 @@
     };
     const recent = resume&&catalog.find(row=>row.id===resume.id);
     const isWhole=resume?.mode==='whole', t=resume?clock(resume.at):'', total=resume?clock(resume.duration):'';
-    const continueCard=recent?`<section class="td-continue" aria-labelledby="td-continue-title">
+    const continueMotion = recent ? motionState(recent.id,'continue') : {cls:'',style:'',check:false};
+    const continueCard=recent?`<section class="td-continue${continueMotion.cls}" style="${continueMotion.style}" aria-labelledby="td-continue-title">
       <div class="td-continue-copy">
-        <h2 id="td-continue-title">${pair('继续学习','Continue learning')}</h2>
+        <h2 id="td-continue-title">${continueMotion.check?checkMark:''}${pair('继续学习','Continue learning')}</h2>
         <p class="td-continue-title"><span class="td-episode">${episodeLabel(recent)}</span> ${pair(recent.titleZh,recent.title)}</p>
         <p class="td-continue-position">${pair(...(isWhole?['整期节目','Full episode']:['核心对话','Core dialogue']))}
           <span class="td-continue-clock">${safe(t)} / ${safe(total)}</span></p>
       </div>
       <a data-continue-learning href="#lesson/${encodeURIComponent(recent.id)}/${isWhole?'whole':'core'}" class="td-continue-link">${pair(resume.finished&&resume.at>=resume.duration-.1?'再听一遍':'接着听',resume.finished&&resume.at>=resume.duration-.1?'Listen again':'Resume listening')}</a>
+      ${progressTrack}
     </section>`:'';
 
     main.innerHTML = `<section class="elp-trial-dir" aria-labelledby="trial-directory-title">
@@ -204,15 +254,19 @@
       const again=!!(saved?.finished&&saved.at>=saved.duration-.1);
       const route = `#lesson/${encodeURIComponent(row.id)}`;
       const hasImage = canStudy && !!row.sceneImage;
+      const motion = motionState(row.id,'row');
       const thumb = state.view !== 'cards' || !hasImage ? '' : `<div class="td-thumb" aria-hidden="true"><img src="${safe(row.sceneImage)}" loading="lazy" decoding="async" width="72" height="60" alt=""></div>`;
       const titleZh = row.titleZh || `第 ${episodeNo(row)} 期 · ${row.title}`;
+      const learningLabel = progressKey ? (motion.check
+        ? `<span class="elp-complete-label">${pair(...learningLabels[progressKey])}</span>`
+        : pair(...learningLabels[progressKey])) : '';
       const links = canStudy ? lessonLinks({route,saved,isWhole,again})
         : `<div class="td-links"><span class="td-coming" aria-disabled="true">${pair('即将上线','Coming soon')}</span></div>`;
-      return `<li class="td-item${hasImage?'':' td-item-no-thumb'}" data-episode="${safe(row.id)}">${thumb}<div class="td-body">
+      return `<li class="td-item${hasImage?'':' td-item-no-thumb'}${motion.cls}" style="${motion.style}" data-episode="${safe(row.id)}">${thumb}<div class="td-body">
         <div class="td-item-head">
           <span class="td-episode">${episodeLabel(row)}</span>
           <span class="td-badge ${canStudy?'td-ready':'td-pending'}">${pair(...statuses[canStudy?'ready':'pending'])}</span>
-          ${progressKey?`<span class="td-badge td-learning-${progressKey}" data-learning="${progressKey}">${pair(...learningLabels[progressKey])}</span>`:''}
+          ${progressKey?`<span class="td-badge td-learning-${progressKey} td-status-badge" data-learning="${progressKey}">${motion.check?checkMark:''}${learningLabel}</span>`:''}
         </div>
         <h2 class="td-title"><span class="td-title-zh" lang="zh">${safe(titleZh)}</span><span class="td-title-en" lang="en">${safe(row.title)}</span></h2>
         <p class="td-meta">${[row.category,row.difficulty,...(row.tags ?? [])].filter(Boolean)
@@ -221,7 +275,7 @@
           `${pair(...(isWhole?['上次听到 · 整期','Last position · Full episode']:['上次听到 · 核心对话','Last position · Core dialogue']))} <strong>${safe(position)}</strong>`:
           pair('尚无听音记录','No listening yet')}</p>`:''}
         ${links}
-      </div></li>`;
+      </div>${hasLearning?progressTrack:''}</li>`;
     };
 
     const update = () => {
@@ -282,5 +336,5 @@
     syncLanguage();
     update();
   }
-  window.ELP_TRIAL_DIRECTORY = {mount};
+  window.ELP_TRIAL_DIRECTORY = {mount,lessonStatus};
 })();

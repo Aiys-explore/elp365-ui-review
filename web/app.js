@@ -119,10 +119,12 @@
 
   function renderTrialHome() {
     if(series&&window.ELP_TRIAL_DIRECTORY){
+      const directoryLearning=cloud?.enabled?memory.cloudReady?memory.lessons:null:undefined;
       window.ELP_TRIAL_DIRECTORY.mount(main,{catalog:catalog.map(row=>({...row,sceneImage:lessons[row.id]?.sceneImage})),
-        ready:[...series],feature:featured,learning:cloud?.enabled?memory.cloudReady?memory.lessons:null:undefined,
+        ready:[...series],feature:featured,learning:directoryLearning,
         activity:memory.activity, listening:cloud?.enabled&&memory.cloudReady?lastListening:null,
-        resume:cloud?.enabled&&memory.cloudReady?lastListening(memory.last):null});
+        resume:cloud?.enabled&&memory.cloudReady?lastListening(memory.last):null,
+        ...(directoryLearning!==undefined?{motionFor}:{})});
       return;
     }
     const row=byId.get(featured), course=lessons[featured], p=progress(featured);
@@ -152,6 +154,90 @@
     const at=Math.max(0,Math.min(duration||0,Number(mode==='whole'?p.episodeAt:p.trialAt)||0));
     return {id,mode,at,duration:duration||0,finished:mode==='whole'?p.episodeFinished:p.dialogueFinished,
       hasPosition:at>0||(mode==='whole'?p.episodeFinished:p.dialogueFinished)};
+  }
+  const motionGuard=(() => {
+    let hydrated=false;
+    const prevSnapshots=new Map(), consumed=new Set();
+    const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+    function consumeOnce(key){
+      if(consumed.has(key))return false;
+      consumed.add(key);
+      try{
+        if(sessionStorage.getItem(key))return false;
+        sessionStorage.setItem(key,'1');
+      }catch{}
+      return true;
+    }
+    function evaluate(episodeId,next){
+      const prev=prevSnapshots.get(episodeId);
+      prevSnapshots.set(episodeId,{...next});
+      if(!hydrated||!prev)return null;
+      const submittedNow=!prev.submitted&&next.submitted,completedNow=!prev.done&&next.done;
+      if(submittedNow||completedNow){
+        const outcome=completedNow?'course':'practice';
+        const key=`elp-motion:${episodeId}:complete:${completedNow?'fin':'sub'}`;
+        return consumeOnce(key)?{type:'complete',outcome,from:prev.ratio,to:completedNow?1:next.ratio,reduced:reduced.matches}:null;
+      }
+      if(prev.status==='new'&&next.status==='active'){
+        const key=`elp-motion:${episodeId}:start`;
+        return consumeOnce(key)?{type:'start',reduced:reduced.matches}:null;
+      }
+      if(prev.mode===next.mode&&next.ratio>prev.ratio&&next.at-prev.at>=2){
+        const key=`elp-motion:${episodeId}:advance:${next.mode}:${Math.floor(next.at)}`;
+        return consumeOnce(key)?{type:'advance',from:prev.ratio,to:next.ratio,reduced:reduced.matches}:null;
+      }
+      return null;
+    }
+    function cancelIn(root){
+      if(!root?.querySelectorAll)return;
+      root.querySelectorAll('[class*="is-motion-"]').forEach(el=>{
+        el.getAnimations?.({subtree:true}).forEach(animation=>animation.cancel());
+        [...el.classList].filter(name=>name.startsWith('is-motion-')).forEach(name=>el.classList.remove(name));
+      });
+    }
+    function hydrate(entries){
+      if(hydrated)return;
+      for(const [episodeId,next] of entries)prevSnapshots.set(episodeId,{...next});
+      hydrated=true;
+    }
+    return{evaluate,hydrate,cancelIn,consumeOnce};
+  })();
+  const motionMessages={course:'课程已完成',practice:'练习已提交',start:'课程开始学习',advance:'学习进度已更新'};
+  const motionAnnouncements=new Set(), motionLive=document.createElement('p');
+  motionLive.className='sr';
+  motionLive.dataset.learningMotionLive='';
+  motionLive.setAttribute('role','status');
+  motionLive.setAttribute('aria-live','polite');
+  function queueMotionAnnouncement(event){
+    const pending=motionAnnouncements.size>0;
+    motionAnnouncements.add(motionMessages[event.outcome||event.type]);
+    if(pending)return;
+    queueMicrotask(()=>{
+      motionLive.textContent=[...motionAnnouncements].join('；');
+      motionAnnouncements.clear();
+    });
+  }
+  function motionSnapshot(episodeId){
+    const saved=lastListening(episodeId),p=memory.lessons[episodeId];
+    const status=window.ELP_TRIAL_DIRECTORY?.lessonStatus?.(p)||'new';
+    return{
+      status,
+      ratio:status==='done'?1:saved?.duration?Math.max(0,Math.min(1,saved.at/saved.duration)):0,
+      done:status==='done',
+      submitted:p?.trialSubmitted===true,
+      at:saved?.at||0,
+      mode:saved?.mode||''
+    };
+  }
+  function motionFor(episodeId){
+    const event=motionGuard.evaluate(episodeId,motionSnapshot(episodeId));
+    if(event)queueMotionAnnouncement(event);
+    return event;
+  }
+  function hydrateMotionState(){
+    if(!series||!window.ELP_TRIAL_DIRECTORY)return;
+    main.after(motionLive);
+    motionGuard.hydrate(catalog.map(row=>[row.id,motionSnapshot(row.id)]));
   }
   const trialTitle=row=>`<h1><span class="trial-title-zh" lang="zh">${safe(row.titleZh)}</span><span class="trial-title-en" lang="en">${safe(row.title)}</span></h1>`;
   const trialArt=(course,lazy=false)=>course.sceneImage
@@ -358,6 +444,12 @@
       ? '<span class="correct">✓ 正确</span>'
       : `<span class="wrong">参考：<span lang="en">${safe(item.answers[0])}</span></span>`;
   }
+  function selfCheck(rewrite){
+    const chinese=String(rewrite.check??''),english=String(rewrite.checkEn??ui?.translation(chinese)??'');
+    return english&&english!==chinese
+      ? `<p><span data-i18n><span lang="zh">自检：${safe(chinese)}</span><span lang="en">Self-check: ${safe(english)}</span></span></p>`
+      : `<p>自检：${safe(chinese)}</p>`;
+  }
   function outputBody(course,p,trial=false) {
     if(trial){
       const rewrite=course.practice.rewrite, submitted=p.trialSubmitted===true;
@@ -372,7 +464,7 @@
         <label class="sr" for="trial-rewrite">写下你的表达</label>
         <textarea id="trial-rewrite" name="rewrite" required maxlength="1200" placeholder="先写一句，或先自己说一遍。">${safe(p.trialRewrite||'')}</textarea>
         <div class="row"><button class="button primary" type="submit">提交练习</button><p data-trial-result role="status">${submitted?'✓ 练习已提交':''}</p></div>
-        <div class="reference" data-trial-model ${submitted?'':'hidden'}><h3>参考表达</h3>${english(rewrite.reference)}<p>自检：${safe(rewrite.check)}</p></div>
+        <div class="reference" data-trial-model ${submitted?'':'hidden'}><h3>参考表达</h3>${english(rewrite.reference)}${selfCheck(rewrite)}</div>
       </form>`;
     }
     return `<article class="card stage-card"><h3>填空</h3>
@@ -390,7 +482,7 @@
         <textarea id="rewrite" maxlength="1200" placeholder="先写一句，或先自己说一遍。"></textarea>
         <div class="row">${btn(reference?'收起参考':'查看参考表达','reference','','aria-controls="rewrite-reference" aria-expanded="'+reference+'"')}</div>
         <div id="rewrite-reference" class="reference" ${reference?'':'hidden'}>
-          ${english(course.practice.rewrite.reference)}<p>自检：${safe(course.practice.rewrite.check)}</p>
+          ${english(course.practice.rewrite.reference)}${selfCheck(course.practice.rewrite)}
         </div>
       </article>`;
   }
@@ -565,6 +657,8 @@
     if(focus)focusPage();
   }
   function route(focus=false,resumeCore=false) {
+    motionGuard.cancelIn(main);
+    motionLive.textContent='';
     const hash = location.hash.slice(1);
     const [, lessonId, lessonView] = hash.match(/^lesson\/(ep-\d{3})(?:\/(core|whole|notes))?$/) || [];
     const direct = curated&&['whole','core','notes'].includes(hash);
@@ -819,6 +913,7 @@
       p.trialRewrite=String(form.get('rewrite')||'');
       if(p.trialSubmitted){
         p.trialSubmitted=false;
+        event.target.form?.classList.remove('is-motion-practice');
         q('[data-trial-result]').textContent='';
         q('[data-trial-model]').hidden=true;
         qa('[data-result]').forEach(el=>el.textContent='');
@@ -860,6 +955,8 @@
       p.trialAnswers=names.slice(0,-1).map(name=>String(form.get(name)).trim());
       p.trialRewrite=String(form.get('rewrite')).trim();
       p.trialSubmitted=true;persist();
+      if(motionGuard.consumeOnce(`elp-motion:${active.id}:practice-feedback`))
+        event.target.classList.add('is-motion-practice');
       items.forEach((item,i)=>{q('[data-result="'+i+'"]').innerHTML=gapFeedback(item,p.trialAnswers[i],true);});
       q('[data-trial-model]').hidden=false;
       q('[data-trial-result]').textContent='✓ 练习已提交';
@@ -981,9 +1078,11 @@
   if(cloud?.enabled){
     cloud.load().then(data=>{
       Object.assign(memory,data);
+      hydrateMotionState();
       window.addEventListener('hashchange',()=>route(true));route();
     });
   }else{
+    hydrateMotionState();
     window.addEventListener('hashchange',()=>route(true));route();
   }
 })();

@@ -55,7 +55,7 @@
     patterns:[{frame:'Could you take a quick look at [thing]?',use:'请对方快速确认某件事。',example:core[0].en}],
     practice:{
       gaps:[{prompt:'Could you take a quick ___ at this slide?',answers:['look'],hint:'填入一个词。'}],
-      rewrite:{task:'用一句英语请同事快速看一下会议议程。',reference:'Could you take a quick look at this meeting agenda?',check:'是否说清楚请对方看什么？'}
+      rewrite:{task:'用一句英语请同事快速看一下会议议程。',reference:'Could you take a quick look at this meeting agenda?',check:'是否说清楚请对方看什么？',checkEn:'Did you specify what you want them to review?'}
     }
   };
   const catalog = [

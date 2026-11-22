@@ -222,9 +222,10 @@
 .elp-trial-dir .td-learning-active{color:#6c430e;background:#fff0c8;border-color:#c39958}
 .elp-trial-dir .td-learning-done{color:#234a37;background:#d7ede0;border-color:#82ad95}
 
-@media (min-width:770px) {
+/* The three column row needs room for the action row; below 1000px the rows stack. */
+@media (min-width:1000px) {
   .elp-trial-dir [data-view=list] .td-body {
-    grid-template-columns:minmax(112px,.55fr) minmax(0,1.15fr) minmax(300px,2.3fr);
+    grid-template-columns:minmax(140px,.65fr) minmax(0,1.1fr) minmax(300px,2.25fr);
     grid-template-areas:"status title actions" "status meta actions" "status position actions";
     row-gap:1px;
   }
@@ -240,6 +241,14 @@
 }
 @media (min-width:701px) {
   .elp-trial-dir .td-more-filters>summary {display:none}
+}
+/* Between 701px and 999px the open filter drawer gets its own full width row. */
+@media (min-width:701px) and (max-width:999px) {
+  .elp-trial-dir .td-controls,
+  .elp-trial-dir .td-controls.td-with-progress {
+    grid-template-columns:minmax(9.5rem,1fr) minmax(9.5rem,1fr);
+  }
+  .elp-trial-dir .td-more-filters {grid-column:1/-1}
 }
 @media (max-width:769px) {
   .elp-trial-dir .td-head {grid-template-columns:minmax(0,1fr)}
@@ -291,4 +300,109 @@
   .elp-trial-dir .td-continue-link {justify-self:end;padding:.32rem .58rem;font-size:.8rem}
   html:not([data-trial-language=zh]):not([data-trial-language=en])
     .elp-trial-dir :is(.td-field,.td-count,.td-ready-only,.td-views,.td-more-filters>summary,.td-continue-title,.td-continue-link,.td-links) [data-i18n]>[lang=en] {display:none}
+}
+
+/* --- P2 3.1: learning record progress bar and completion motion --- */
+.elp-trial-dir .td-status-badge {min-width:4.5em;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+.elp-trial-dir .td-progress-track {
+  height:3px;
+  width:100%;
+  margin-top:6px;
+  overflow:hidden;
+  border-radius:2px;
+  background:rgba(17,24,39,.08);
+}
+.elp-trial-dir .td-progress-fill {
+  height:100%;
+  width:100%;
+  background:var(--td-muted,#6b4e3d);
+  transform-origin:left center;
+  transform:scaleX(var(--progress-to,0));
+}
+.elp-trial-dir [data-view=cards] .td-item > .td-progress-track {grid-column:1/-1;margin-top:0}
+.elp-trial-dir .td-continue > .td-progress-track {grid-column:1/-1;margin-top:.35rem}
+.elp-trial-dir .td-complete-mark {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 14px;
+  width:14px;
+  height:14px;
+  margin-inline-end:.2rem;
+  color:#234a37;
+}
+.elp-trial-dir .elp-check {display:block}
+.elp-trial-dir .elp-check-path {
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2.6;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  transform-box:fill-box;
+  transform-origin:center;
+}
+
+/* The app marks the matching row; the directory only renders the state. */
+.elp-trial-dir .is-motion-complete .td-progress-fill {animation:elp-bar-fill 160ms cubic-bezier(.22,1,.36,1) forwards}
+.elp-trial-dir .is-motion-complete .elp-check-path {
+  animation:elp-check-draw 220ms cubic-bezier(.22,1,.36,1) 160ms forwards;
+}
+.elp-trial-dir .is-motion-complete .elp-complete-label {animation:elp-fade-in 140ms ease-out 380ms both}
+.elp-trial-dir .is-motion-start .td-status-badge {animation:elp-badge-pop 180ms cubic-bezier(.22,1,.36,1) both}
+.elp-trial-dir .is-motion-start .td-progress-fill {animation:elp-bar-advance 180ms cubic-bezier(.22,1,.36,1) 180ms both}
+.elp-trial-dir .is-motion-advance .td-progress-fill {animation:elp-bar-advance 280ms cubic-bezier(.22,1,.36,1) forwards}
+
+@keyframes elp-bar-fill {
+  from {transform:scaleX(var(--progress-from,.85))}
+  to {transform:scaleX(var(--progress-to,1))}
+}
+@keyframes elp-bar-advance {
+  from {transform:scaleX(var(--progress-from,0))}
+  to {transform:scaleX(var(--progress-to,0))}
+}
+@keyframes elp-check-draw {
+  0% {opacity:0;transform:scale(.6)}
+  60% {opacity:1;transform:scale(1.08)}
+  100% {opacity:1;transform:scale(1)}
+}
+@keyframes elp-badge-pop {
+  from {opacity:.4}
+  to {opacity:1}
+}
+@keyframes elp-fade-in {
+  from {opacity:0}
+  to {opacity:1}
+}
+
+/* Static equivalent: no animation, the end state stays visible with a high contrast outline. */
+.elp-trial-dir .is-motion-static .td-progress-fill {animation:none;transform:scaleX(var(--progress-to,1))}
+.elp-trial-dir .is-motion-static .elp-check-path {animation:none;opacity:1;transform:none}
+.elp-trial-dir .is-motion-static .elp-complete-label {animation:none;opacity:1}
+.elp-trial-dir .is-motion-static .td-status-badge {animation:none;opacity:1;outline:2px solid currentColor;outline-offset:2px}
+
+@media (prefers-reduced-motion:reduce) {
+  .elp-trial-dir .is-motion-complete .td-progress-fill,
+  .elp-trial-dir .is-motion-start .td-progress-fill,
+  .elp-trial-dir .is-motion-advance .td-progress-fill {
+    animation:none !important;
+    transition:none !important;
+    transform:scaleX(var(--progress-to,1));
+  }
+  .elp-trial-dir .is-motion-complete .elp-check-path {
+    animation:none !important;
+    transition:none !important;
+    opacity:1;
+    transform:none;
+  }
+  .elp-trial-dir .is-motion-complete .elp-complete-label,
+  .elp-trial-dir .is-motion-start .td-status-badge {
+    animation:none !important;
+    transition:none !important;
+    opacity:1;
+  }
+  .elp-trial-dir .is-motion-complete .td-status-badge,
+  .elp-trial-dir .is-motion-start .td-status-badge {
+    outline:2px solid currentColor;
+    outline-offset:2px;
+  }
 }
