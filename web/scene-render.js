@@ -5,7 +5,8 @@
   const sets=new WeakMap(), reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const samples=new WeakMap();
   const overlayDefaults={board:{x:50,y:40,w:60,z:20},bubble:{x:50,y:22,w:62,z:80}};
-  const zOf=(p,kind)=>p?.z??(kind==='board'?20:kind==='bubble'?80:kind==='actor'?30:p.asset==='desk'?60:45);
+  const zOf=(p,kind)=>p?.z??(kind==='board'?20:kind==='bubble'?80:kind==='actor'?30:
+    p.id==='mic-left'||p.id==='mic-right'?60:p.asset==='desk'||p.id==='desk-foreground'?40:45);
   const overlayOf=(scene,kind)=>({...overlayDefaults[kind],...scene.overlays?.[kind]});
   function pathAt(p,t){
     const route=[...(p.routes||[])].sort((a,b)=>a.start-b.start).findLast(r=>r.start<=t);
@@ -65,7 +66,7 @@
     for(const node of stage.querySelectorAll('[data-ep-office] [data-scene-actor]'))tag(node,node.dataset.sceneActor,'actor');
   }
   function measureFormal(stage,study){
-    const width=stage.offsetWidth, key=width+':'+stage.offsetHeight+':'+(innerWidth<=660);
+    const width=stage.offsetWidth, key=(innerWidth<=660?'mobile':'desktop')+':v2';
     const hit=samples.get(stage);
     if(hit?.key===key)return hit;
     labelNative(stage);
@@ -85,6 +86,14 @@
         const kind=p.dataset.kind;
         map[p.dataset.placement]=read(p,kind==='actor');
         if(kind==='actor')map[p.dataset.placement].w=p.getBoundingClientRect().width/box.width*100;
+        else if(kind==='prop'){
+          const host=p.closest('.ep-host');
+          if(host){
+            const scale=host.getBoundingClientRect().width/host.offsetWidth;
+            map[p.dataset.placement].w*=scale;
+            map[p.dataset.placement].h*=scale;
+          }
+        }
       }
       return map;
     };
@@ -278,7 +287,7 @@
       }
     }
     for(const p of scene.props){
-      const entry=slot.pieces.get('prop:'+p.id), official=formal?.[scene.template]?.[p.id];
+      const entry=slot.pieces.get('prop:'+p.id), official=formal?.[boardOn&&scene.template==='studio'?'board':scene.template]?.[p.id];
       const reference=graph?.reference?.[scene.template]?.props.find(r=>r.id===p.id);
       const native=reference?.asset===p.asset&&stage?.querySelector('[data-ep-studio] [data-placement="'+p.id+'"]');
       sourcePiece(entry,media.get(p.asset),native);

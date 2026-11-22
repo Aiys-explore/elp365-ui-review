@@ -13,9 +13,9 @@
 .sc-background[hidden],.sc-wall[hidden]{display:none!important}
 .sc-formal-studio{background:radial-gradient(ellipse at 48% 50%,#fff4d7 8%,#fae2bb 72%)}
 .sc-piece{position:absolute;transform:translate(-50%,-100%) var(--sc-move,none);transform-origin:50% 92%;pointer-events:none}
-.sc-actor{z-index:3;transform:translate(-50%,-100%) var(--sc-move,rotate(0))}
-.sc-prop{z-index:4;transform:translate(-50%,-50%)}
-.sc-desk{z-index:5}
+.sc-actor{z-index:30;transform:translate(-50%,-100%) var(--sc-move,rotate(0))}
+.sc-prop{z-index:45;transform:translate(-50%,-50%)}
+.sc-desk{z-index:40}
 .sc-piece .sc-image{width:100%;height:auto;display:block;filter:drop-shadow(0 4px 3px #30202033)}
 .sc-cast-sized .sc-image{position:absolute;bottom:0;left:50%;height:100%;width:auto;max-width:none;transform:translateX(-50%);pointer-events:none}
 .sc-artwork{position:relative;width:100%;height:100%;transform-origin:center}
@@ -25,7 +25,7 @@
 .sc-piece[data-placement=mic-right] .ep-mic.sc-native-prop{transform:rotate(6deg)}
 .sc-piece .sc-host-image{height:auto;aspect-ratio:3/4}
 .sc-piece .sc-host-right img{left:-100%}
-.sc-board{position:absolute;z-index:2;top:17%;left:21%;width:58%;min-height:46%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.2em;padding:3%;border:clamp(2px,.6vw,7px) solid #bd8351;border-radius:4%;background:#234039;color:#fff6d4;text-align:center;font-size:clamp(.62rem,2.8vw,1.1rem);overflow-wrap:anywhere}
+.sc-board{position:absolute;z-index:2;top:17%;left:21%;width:58%;min-height:46%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.2em;padding:3%;border:clamp(2px,.6vw,7px) solid #bd8351;border-radius:4%;background:#234039;color:#fff6d4;text-align:center;font-size:clamp(.62rem,2.8vw,1.1rem);font-size:clamp(12px,1.85cqw,25px);overflow-wrap:anywhere}
 .sc-board[hidden],.sc-frame[hidden],.sc-bubble[hidden]{display:none!important}
 .sc-board strong{font-size:1.35em;color:#ffe1a1;min-height:1.15em}
 .sc-board{transform:translate(-50%,-50%)}

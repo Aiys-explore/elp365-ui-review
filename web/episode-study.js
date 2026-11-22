@@ -309,23 +309,51 @@
     function fullscreenControl(){
       const button=q('[data-ep-fullscreen]'),player=button?.closest('.ep-watch');
       if(!button)return;
-      const open=document.fullscreenElement===player;
-      button.hidden=!open&&!(desktop.matches&&document.fullscreenEnabled&&player.requestFullscreen);
+      const open=document.fullscreenElement===player||player.classList.contains('is-web-fullscreen');
+      button.hidden=false;
+      button.setAttribute('aria-pressed',String(open));
       const label=open?fullscreenText('退出全屏','Exit full screen'):fullscreenText('全屏','Full screen');
       if(button.textContent!==label)button.textContent=label;
+    }
+    function setWebFs(player,on){
+      player.classList.toggle('is-web-fullscreen',on);
+      document.documentElement.classList.toggle('ep-lock-scroll',on);
+      fullscreenControl();
+      sync();
+    }
+    function releaseFullscreen(){
+      const player=main.querySelector('.ep-watch.is-web-fullscreen');
+      if(player)setWebFs(player,false);
+      if(document.fullscreenElement&&main.contains(document.fullscreenElement))
+        document.exitFullscreen()?.catch(()=>{});
     }
     main.addEventListener('click',async event=>{
       const button=event.target.closest('[data-ep-fullscreen]');
       if(!button||button.hidden)return;
       const player=button.closest('.ep-watch'), notice=player.querySelector('[data-fullscreen-error]');
       notice.hidden=true;
-      try{
-        if(document.fullscreenElement===player)await document.exitFullscreen();
-        else if(desktop.matches)await player.requestFullscreen();
-      }catch{
-        notice.textContent=fullscreenText('浏览器未能开启或退出全屏。','The browser could not change full screen mode.');
-        notice.hidden=false;
+      if(document.fullscreenElement===player||player.classList.contains('is-web-fullscreen')){
+        try{
+          if(document.fullscreenElement===player)await document.exitFullscreen();
+        }catch{
+          notice.textContent=fullscreenText('浏览器未能开启或退出全屏。','The browser could not change full screen mode.');
+          notice.hidden=false;
+        }
+        if(player.classList.contains('is-web-fullscreen'))setWebFs(player,false);
+        return;
       }
+      if(desktop.matches&&document.fullscreenEnabled&&player.requestFullscreen){
+        try{
+          await player.requestFullscreen();
+          return;
+        }catch{}
+      }
+      if(main.contains(player))setWebFs(player,true);
+    });
+    window.addEventListener('keydown',event=>{
+      if(event.key!=='Escape')return;
+      const player=main.querySelector('.ep-watch.is-web-fullscreen');
+      if(player)setWebFs(player,false);
     });
     desktop.addEventListener('change',fullscreenControl);
     document.addEventListener('fullscreenchange',fullscreenControl);
@@ -358,6 +386,7 @@
       frame=0;
     }
     function clear(){
+      releaseFullscreen();
       record(true);
       view='off';clip=null;pending=null;study=null;state=null;problem='';loop=false;
       watchSize.disconnect();
@@ -379,8 +408,10 @@
       sync();
     }
     function setView(next){
-      if(!study||view===next)return;
+      if(!study)return;
+      if(view===next){releaseFullscreen();return;}
       record(true);
+      releaseFullscreen();
       pause();
       clip=null;pending=null;problem='';view=next;
       if(view==='whole'){audio.playbackRate=wholeRate();move(clamp(state.episodeAt));}
