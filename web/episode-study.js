@@ -199,12 +199,12 @@
           </div>
           <div class="ep-composed-names" data-ep-composed-names></div>
         </div></div>
-        <div class="ep-example-dock" data-ep-example-dock></div>
         <div class="ep-caption-slot">
           <div class="ep-caption" data-ep-caption hidden>
             <p lang="en" data-ep-en></p><p data-ep-zh></p>
             <p class="ep-caption-note" data-ep-note hidden></p>
           </div>
+          <div class="ep-example-dock" data-ep-example-dock></div>
         </div>
         <div class="row ep-controls">
           ${button('episode-play','播放','data-ep-play','primary')}
@@ -634,21 +634,24 @@
         blindOffice.hidden=lang!=='off'||stage.dataset.scene!=='office';
         stage.classList.toggle('ep-use-still',!blindOffice.hidden);
       }
-      const nextCopy=[cue?.start,term?.[0],lang,composed?.bubble,demo?.[4]||''].join('|');
+      const nextCopy=[cue?.start,term?.[0],lang,composed?.bubble,demo?.[3]||'',demo?.[4]||''].join('|');
       if(copyKey!==nextCopy){
         copyKey=nextCopy;
-        const exampleEnglish=String(demo?.[4]??'').trim();
-        const repeated=!!exampleEnglish&&String(cue?.en??'').trim()===exampleEnglish;
-        q('[data-ep-caption]').hidden=!cue||lang==='off'||!!composed?.bubble||(repeated&&lang==='en');
+        const englishRepeated=!!demo?.[4]&&String(demo[4]).trim()===String(cue?.en??'').trim();
+        const chineseRepeated=!!demo?.[3]&&String(demo[3]).trim()===String(cue?.zh??'').trim();
+        const englishShown=lang!=='zh'&&!englishRepeated;
+        const chineseShown=lang!=='en'&&!chineseRepeated;
+        const note=q('[data-ep-note]');
+        const noteText=cue?.note&&lang!=='off'?(lang==='dual'?[cue.note.zh,cue.note.en].join(' · '):cue.note[lang])||'':'';
+        q('[data-ep-caption]').hidden=!cue||lang==='off'||!!composed?.bubble||(!englishShown&&!chineseShown&&!noteText);
         const ranges=cue?.highlights||[];
         q('[data-ep-en]').innerHTML=!cue?'':(composed?.explicitHighlights||ranges.some(r=>r.lang==='en'))?window.ELP_SCENE.html(cue.en,ranges,'en'):
           mark(cue.en,[...(study.highlights||[]),...(term?[term[2]]:[])]);
         q('[data-ep-zh]').innerHTML=cue?window.ELP_SCENE?.html(cue.zh,ranges,'zh')??esc(cue.zh):'';
-        q('[data-ep-en]').hidden=lang==='zh'||repeated;
-        q('[data-ep-zh]').hidden=lang==='en';
-        const note=q('[data-ep-note]');
-        note.hidden=!cue?.note||lang==='off';
-        note.textContent=cue?.note?(lang==='dual'?[cue.note.zh,cue.note.en].join(' · '):cue.note[lang])||'':'';
+        q('[data-ep-en]').hidden=!englishShown;
+        q('[data-ep-zh]').hidden=!chineseShown;
+        note.hidden=!noteText;
+        note.textContent=noteText;
         q('[data-ep-sticker]').hidden=!term;
         q('[data-ep-word]').textContent=term?.[2]||'';
         q('[data-ep-gloss]').textContent=term?.[3]||'';
