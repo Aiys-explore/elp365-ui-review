@@ -43,6 +43,7 @@
   const bilingual = ([zh,en]) => zh && en ? `${zh} / ${en}` : (zh || en);
   const optionText = ([zh,en], mode) => mode === 'en' ? (en || zh) : (zh || en);
   const checkMark = '<span class="td-complete-mark" aria-hidden="true"><svg class="elp-check" viewBox="0 0 24 24" width="14" height="14" focusable="false" role="presentation"><path class="elp-check-path" d="M4 12.5 L9.5 18 L20 6.5"/></svg></span>';
+  const checkSlot = mark => `<span class="td-check-slot">${mark}</span>`;
   const progressTrack = '<div class="td-progress-track" aria-hidden="true"><div class="td-progress-fill"></div></div>';
   const lessonLinks = ({route,saved,isWhole,again}) => {
     const primary = saved?.hasPosition
@@ -100,17 +101,24 @@
     };
     const motionState = (id, kind) => {
       const resting = ratioFor(id);
+      const done = progressFor(id)==='done';
       const motion = resolveMotion(id);
-      if (!motion) return {cls:'', style:`--progress-to:${resting.toFixed(3)}`, check:false};
-      const key = `${kind}:${id}:${motion.result.type}`;
+      const restingState = {cls:'', style:`--progress-to:${resting.toFixed(3)}`, check:done};
+      if (!motion) return restingState;
+      const {result,from,to} = motion;
+      /* A submitted exercise is not a finished course: the practice outcome keeps the
+         resting bar, shows no completion mark and runs no course completion motion.
+         The app keeps announcing the submission through its aria-live region. */
+      if (result.type==='complete' && result.outcome!=='course') return restingState;
+      const key = `${kind}:${id}:${result.type}:${result.outcome||''}`;
       const first = !playedMotion.has(key);
       playedMotion.add(key);
-      const {result,from,to} = motion;
+      const completed = done || (result.type==='complete' && result.outcome==='course');
       const cls = result.reduced ? ' is-motion-static' : (first ? ` is-motion-${result.type}` : '');
       return {
         cls,
         style:`--progress-to:${to.toFixed(3)};--progress-from:${from.toFixed(3)}`,
-        check: result.type==='complete'
+        check: completed
       };
     };
     const recentFirst = (a,b) => Math.max(learning?.[b.id]?.lastOpened||0, activity?.[b.id]||0)
@@ -142,6 +150,8 @@
     };
     const recent = resume&&catalog.find(row=>row.id===resume.id);
     const isWhole=resume?.mode==='whole', t=resume?clock(resume.at):'', total=resume?clock(resume.duration):'';
+    /* The resume card keeps the app driven motion, so a start, an advance or a finished
+       course is still announced when the matching row is filtered out of the list. */
     const continueMotion = recent ? motionState(recent.id,'continue') : {cls:'',style:'',check:false};
     const continueCard=recent?`<section class="td-continue${continueMotion.cls}" style="${continueMotion.style}" aria-labelledby="td-continue-title">
       <div class="td-continue-copy">
@@ -266,7 +276,7 @@
         <div class="td-item-head">
           <span class="td-episode">${episodeLabel(row)}</span>
           <span class="td-badge ${canStudy?'td-ready':'td-pending'}">${pair(...statuses[canStudy?'ready':'pending'])}</span>
-          ${progressKey?`<span class="td-badge td-learning-${progressKey} td-status-badge" data-learning="${progressKey}">${motion.check?checkMark:''}${learningLabel}</span>`:''}
+          ${progressKey?`<span class="td-badge td-learning-${progressKey} td-status-badge" data-learning="${progressKey}">${checkSlot(motion.check?checkMark:'')}${learningLabel}</span>`:''}
         </div>
         <h2 class="td-title"><span class="td-title-zh" lang="zh">${safe(titleZh)}</span><span class="td-title-en" lang="en">${safe(row.title)}</span></h2>
         <p class="td-meta">${[row.category,row.difficulty,...(row.tags ?? [])].filter(Boolean)

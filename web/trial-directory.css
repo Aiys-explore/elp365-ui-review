@@ -321,7 +321,8 @@
 }
 .elp-trial-dir [data-view=cards] .td-item > .td-progress-track {grid-column:1/-1;margin-top:0}
 .elp-trial-dir .td-continue > .td-progress-track {grid-column:1/-1;margin-top:.35rem}
-.elp-trial-dir .td-complete-mark {
+/* The slot keeps a fixed footprint, so the label keeps its place when the check appears. */
+.elp-trial-dir .td-check-slot {
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -329,6 +330,14 @@
   width:14px;
   height:14px;
   margin-inline-end:.2rem;
+}
+.elp-trial-dir .td-complete-mark {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 14px;
+  width:14px;
+  height:14px;
   color:#234a37;
 }
 .elp-trial-dir .elp-check {display:block}
@@ -347,7 +356,8 @@
 .elp-trial-dir .is-motion-complete .elp-check-path {
   animation:elp-check-draw 220ms cubic-bezier(.22,1,.36,1) 160ms forwards;
 }
-.elp-trial-dir .is-motion-complete .elp-complete-label {animation:elp-fade-in 140ms ease-out 380ms both}
+/* The completion text stays readable for the whole motion. */
+.elp-trial-dir .is-motion-complete .elp-complete-label {animation:none;opacity:1}
 .elp-trial-dir .is-motion-start .td-status-badge {animation:elp-badge-pop 180ms cubic-bezier(.22,1,.36,1) both}
 .elp-trial-dir .is-motion-start .td-progress-fill {animation:elp-bar-advance 180ms cubic-bezier(.22,1,.36,1) 180ms both}
 .elp-trial-dir .is-motion-advance .td-progress-fill {animation:elp-bar-advance 280ms cubic-bezier(.22,1,.36,1) forwards}
