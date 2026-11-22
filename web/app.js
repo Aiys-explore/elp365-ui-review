@@ -92,6 +92,8 @@
   const clamp = (n,hi) => Number.isInteger(n) ? Math.max(0,Math.min(hi,n)) : 0;
   const KEY = 'scene-english:progress:v1';
   const cloud = window.ELP_PROGRESS;
+  const trajectory = window.ELP_TRAJECTORY;
+  const trajectoryView = window.ELP_TRAJECTORY_VIEW;
   let memory = {};
   if(!cloud)try { memory = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch {}
   if (typeof memory !== 'object' || Array.isArray(memory)) memory = {};
@@ -121,6 +123,13 @@
   let active = null, section = '', segment = null, countRound = false, reference = false;
   let rate = 1, lang = 'dual', audioError = '', frame = 0;
   const PAGE_SIZE = 18;
+
+  function showTrajectory(snapshot = trajectory?.snapshot, status = trajectory?.status) {
+    if (!curated || !trajectoryView) return;
+    if (section === 'trajectory') trajectoryView.renderPage(main, snapshot, status);
+    else if (section === 'study') trajectoryView.mountStudy(main, snapshot, status);
+  }
+  trajectory?.subscribe(showTrajectory);
 
   function renderTrialHome() {
     if(series&&window.ELP_TRIAL_DIRECTORY){
@@ -710,10 +719,17 @@
         releaseTrialAudio();active=null;player.load();
         segment=null; countRound=false; audioError='';
       }
-      section = !curated&&hash==='resources' ? 'resources' : !curated&&hash==='sounds' ? 'sounds' : 'study';
+      section = curated&&trajectoryView&&hash==='trajectory' ? 'trajectory'
+        : !curated&&hash==='resources' ? 'resources' : !curated&&hash==='sounds' ? 'sounds' : 'study';
       if (section==='resources') renderResources();
       else if (section==='sounds') renderSounds();
-      else if(curated)renderTrialHome();
+      else if (section==='trajectory') {
+        showTrajectory();
+        trajectory?.refresh();
+      } else if(curated) {
+        renderTrialHome();
+        showTrajectory();
+      }
       else renderHome();
     }
     for (const [selector,current] of [['#nav-study',single?section!=='sounds':section!=='resources'],['#nav-resources',single?section==='sounds':section==='resources']]) {
@@ -1111,6 +1127,7 @@
   if(cloud?.enabled){
     cloud.load().then(data=>{
       Object.assign(memory,data);
+      trajectory?.connect(data.userId);
       hydrateMotionState();
       window.addEventListener('hashchange',()=>route(true));route();
     });
