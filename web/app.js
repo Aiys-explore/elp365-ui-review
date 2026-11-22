@@ -56,6 +56,11 @@
   const tags = row => `<div class="tags">${row.tags.map(t => `<span class="scene-tag">${icon(sceneIcons[t]??'📍')}${safe(t)}</span>`).join('')}</div>`;
   const btn = (label, action, extra='', attrs='') =>
     `<button class="button ${extra}" type="button" data-action="${action}" ${attrs}>${safe(label)}</button>`;
+  const iconBtn = (label, action, extra='', attrs='', icon='') =>
+    `<button class="button ${extra}" type="button" data-action="${action}" ${attrs}>
+      <span class="control-label" data-control-label>${safe(label)}</span>
+      <span class="control-icon" aria-hidden="true">${safe(icon)}</span>
+    </button>`;
   const wave = () => `<div class="signal" aria-hidden="true">${
     [25,38,64,46,83,57,97,76,52,67,36,18,36,60,91,76,52,31,39,19]
       .map(h => `<span style="--bar:${h}%"></span>`).join('')
@@ -518,17 +523,28 @@
     const blind=listenMode==='off';
     const actorMotion=course.episodeStudy?.sceneLayers?.shots?.length&&Studio?.officeScene;
     p.trialTab=tab;persist();
-    const audio=`
+    const audio=tab==='practice'?'':`
       <div class="audio-controls trial-audio">
         ${tab==='dialogue'&&course.sceneImage?`<img class="core-thumb" src="${safe(course.sceneImage)}" alt="" width="46" height="36">`:''}
-        ${btn('播放','play','primary','data-player-toggle')}
-        ${btn('重听本句','cue','','data-core-current data-cue="'+currentCueIndex(p.trialAt||0)+'"')}
-        ${btn('单句循环','loop','','data-core-current data-cue="'+currentCueIndex(p.trialAt||0)+'" aria-pressed="false"')}
+        ${iconBtn('播放','play','primary','data-player-toggle aria-label="播放 / Play"','▶')}
+        ${iconBtn('重听本句','cue','','data-core-current data-cue="'+currentCueIndex(p.trialAt||0)+'" aria-label="重听本句 / Listen again"','↺')}
+        ${iconBtn('单句循环','loop','','data-core-current data-cue="'+currentCueIndex(p.trialAt||0)+'" aria-pressed="false" aria-label="单句循环 / Loop this line"','↻')}
         <input data-seek type="range" min="0" max="1" value="0" step=".1" aria-label="播放位置">
         <span class="time" data-player-time>0:00</span>
         ${tab==='dialogue'?`<output class="core-cue-count" data-core-count></output>`:''}
       </div>
-      <p class="audio-error" role="status" data-audio-error hidden></p>`;
+    `;
+    const audioStatus=tab==='practice'?'':`<p class="audio-error core-audio-error" role="status" data-audio-error hidden></p>`;
+    const tabLabel=key=>{
+      const copy={
+        dialogue:guide?{long:'双语导读',short:'字幕',longEn:'Bilingual guide',shortEn:'Guide'}
+          :{long:'逐句字幕',short:'字幕',longEn:'Line by line',shortEn:'Lines'},
+        words:{long:'重点词组',short:'词组',longEn:'Key phrases',shortEn:'Phrases'},
+        practice:{long:'练习',short:'练习',longEn:'Practice',shortEn:'Practice'}
+      }[key];
+      return `<span class="core-label core-label-long" data-i18n><span lang="zh">${safe(copy.long)}</span><span lang="en">${safe(copy.longEn)}</span></span>
+        <span class="core-label core-label-short" data-i18n><span lang="zh">${safe(copy.short)}</span><span lang="en">${safe(copy.shortEn)}</span></span>`;
+    };
     const content=tab==='dialogue'?`<section class="card stage-card trial-panel">
       <h2 class="sr">${cueTitle}</h2>
       ${actorMotion?`<div class="trial-scene" data-trial-stage ${blind?'hidden':''}>${Studio.officeScene(course.episodeStudy)}${Studio.dialogueLogo()}</div>`:''}
@@ -541,9 +557,9 @@
       <div data-trial-transcript data-core-mode="${listenMode}" ${blind?'hidden':''}>${trialCueList(course)}</div>
     </section>`:tab==='words'?`<section class="card stage-card trial-panel"><h2>重点词组</h2>
       ${trialVocabulary(course,true)}</section>`:outputBody(course,p,true);
-    main.innerHTML=trialHead(row,'听完整节目',trialUrl(id,'whole'))+modeBar(tab==='dialogue')+`<div class="core-sticky-bar"><nav class="row trial-core-tabs" aria-label="核心对话">${trialTabs.map(([key,label])=>
-      btn(key==='dialogue'?cueTitle:label,'trial-tab','',`data-trial-tab="${key}" aria-pressed="${tab===key}"`)).join('')}</nav>
-      ${audio}</div>${content}${handoutActions(id,true)}`;
+    main.innerHTML=trialHead(row,'听完整节目',trialUrl(id,'whole'))+modeBar(tab==='dialogue')+`<div class="core-sticky-bar" data-core-view="${tab}"><nav class="row trial-core-tabs" aria-label="核心对话">${trialTabs.map(([key])=>
+      `<button class="button" type="button" data-action="trial-tab" data-trial-tab="${key}" aria-pressed="${tab===key}">${tabLabel(key)}</button>`).join('')}</nav>
+      ${audio}</div>${audioStatus}${content}${handoutActions(id,true)}`;
     if(actorMotion)window.ELP_HOST_MOTION?.prepareLayers(course.episodeStudy.sceneLayers);
     if(library.localHandout){
       const download=q('.trial-download a');
@@ -774,8 +790,16 @@
     const pos=player.currentTime||0;
     syncTrialActors(pos);
     const toggle=q('[data-player-toggle]'), label=q('[data-player-time]');
-    if (toggle) toggle.textContent = player.paused ? (!curated&&p.step===0 ?
+    const playLabel = player.paused ? (!curated&&p.step===0 ?
       (countRound && pos>0 ? '继续本遍' : p.passes<3 ? `播放第 ${p.passes+1} 遍` : '重听') : '播放') : '暂停';
+    if (toggle) {
+      const controlLabel=toggle.querySelector('[data-control-label]');
+      const controlIcon=toggle.querySelector('.control-icon');
+      if (controlLabel) controlLabel.textContent=playLabel;
+      else toggle.textContent=playLabel;
+      if (controlIcon) controlIcon.textContent=player.paused?'▶':'⏸';
+      toggle.setAttribute('aria-label',`${playLabel} / ${playLabel==='暂停'?'Pause':'Play'}`);
+    }
     if(toggle)toggle.disabled=!!active.audioRequest;
     if (label) label.textContent = `${time(pos)} / ${time(duration)}`;
     const seek=q('[data-seek]');
@@ -806,7 +830,16 @@
       if(el.dataset.loopIcon){
         el.textContent=on?'■':'↻';
         el.setAttribute('aria-label',`${on?'停止循环':'循环'}第 ${Number(el.dataset.cue)+1} 句`);
-      }else el.textContent=on?'停止循环':el.hasAttribute('data-core-current')?'单句循环':'循环本段';
+      }else{
+        const loopLabel=on?'停止循环':el.hasAttribute('data-core-current')?'单句循环':'循环本段';
+        const controlLabel=el.querySelector('[data-control-label]');
+        if(controlLabel){
+          const controlIcon=el.querySelector('.control-icon');
+          controlLabel.textContent=loopLabel;
+          if(controlIcon)controlIcon.textContent=on?'■':'↻';
+          el.setAttribute('aria-label',`${loopLabel} / ${on?'Stop looping':el.hasAttribute('data-core-current')?'Loop this line':'Loop this section'}`);
+        }else el.textContent=loopLabel;
+      }
     });
   }
   function syncTrialActors(pos=player.currentTime||0){
