@@ -7,7 +7,7 @@
   const volatile = new Map();
   let userId = demo ? 'demo' : '';
   let snapshot = null, status = 'loading', timer = 0, failures = 0;
-  let inFlight = null, rerun = false, refresh = false;
+  let inFlight = null, rerun = false, refresh = false, summaryVisible = false;
 
   function publish(next, value = snapshot) {
     if (next === status && value === snapshot) return;
@@ -95,7 +95,8 @@
             .filter(id => ids.has(id));
           if (!acknowledged.length) throw new Error('Trajectory events were not acknowledged');
           discard(scope, acknowledged);
-          refresh = true;
+          refresh ||= summaryVisible;
+          if (!refresh && snapshot) publish(queue().length ? 'pending' : 'ready');
         }
         if ((refresh || !snapshot) && (!keepalive || read)) {
           refresh = false;
@@ -205,12 +206,12 @@
       discard(accountPrefix(), queue().map(event => event.id));
     }, {capture: true});
   } else {
-    window.addEventListener('online', () => void sync(false, true));
+    window.addEventListener('online', () => void sync(false, summaryVisible));
     window.addEventListener('offline', () => {
       if (userId) publish(queue().length ? 'pending' : 'offline');
     });
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') void sync(false, true);
+      if (document.visibilityState === 'visible') void sync(false, summaryVisible);
       else queueMicrotask(() => void sync(true));
     });
     window.addEventListener('pagehide', () => queueMicrotask(() => void sync(true)));
@@ -236,9 +237,10 @@
       void sync(false, true);
     },
     record,
-    refresh() {
-      if (demo) demoSnapshot();
-      else void sync(false, true);
+    showSummary(visible) {
+      summaryVisible = visible;
+      if (demo && visible) demoSnapshot();
+      else if (visible) void sync(false, true);
     },
     subscribe(listener) { listeners.add(listener); }
   };

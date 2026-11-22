@@ -725,13 +725,13 @@
       else if (section==='sounds') renderSounds();
       else if (section==='trajectory') {
         showTrajectory();
-        trajectory?.refresh();
       } else if(curated) {
         renderTrialHome();
         showTrajectory();
       }
       else renderHome();
     }
+    trajectory?.showSummary(section==='study'||section==='trajectory');
     for (const [selector,current] of [['#nav-study',single?section!=='sounds':section!=='resources'],['#nav-resources',single?section==='sounds':section==='resources']]) {
       const link=q(selector,document);
       if (current) link?.setAttribute('aria-current','page');
