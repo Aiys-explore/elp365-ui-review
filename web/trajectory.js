@@ -8,6 +8,7 @@
   let userId = demo ? 'demo' : '';
   let snapshot = null, status = 'loading', timer = 0, failures = 0;
   let inFlight = null, rerun = false, refresh = false, summaryVisible = false;
+  let identify = false, identifying = false;
 
   function publish(next, value = snapshot) {
     if (next === status && value === snapshot) return;
@@ -48,6 +49,7 @@
 
   function disconnect() {
     userId = '';
+    identify = false;
     clearTimeout(timer);
     timer = 0;
     publish('unavailable', null);
@@ -63,6 +65,23 @@
     }
     if (!response.ok) throw new Error('Trajectory request failed');
     return response.json();
+  }
+
+  async function recoverAccount() {
+    if (!identify || identifying || !navigator.onLine) return;
+    identifying = true;
+    try {
+      const next = await request();
+      if (!identify || !next || typeof next.userId !== 'string' || !next.userId) return;
+      identify = false;
+      userId = next.userId;
+      publish(queue().length ? 'pending' : 'ready', next);
+      void sync();
+    } catch {
+      if (identify) publish('offline');
+    } finally {
+      identifying = false;
+    }
   }
 
   function sync(keepalive = false, read = false) {
@@ -206,12 +225,13 @@
       discard(accountPrefix(), queue().map(event => event.id));
     }, {capture: true});
   } else {
-    window.addEventListener('online', () => void sync(false, summaryVisible));
+    const resume = () => userId ? sync(false, summaryVisible) : recoverAccount();
+    window.addEventListener('online', () => void resume());
     window.addEventListener('offline', () => {
       if (userId) publish(queue().length ? 'pending' : 'offline');
     });
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') void sync(false, summaryVisible);
+      if (document.visibilityState === 'visible') void resume();
       else queueMicrotask(() => void sync(true));
     });
     window.addEventListener('pagehide', () => queueMicrotask(() => void sync(true)));
@@ -227,9 +247,12 @@
     connect(account) {
       if (demo) return;
       if (typeof account !== 'string' || !account) {
-        disconnect();
+        identify = true;
+        publish('offline', null);
+        void recoverAccount();
         return;
       }
+      identify = false;
       if (account !== userId) {
         userId = account;
         publish('loading', null);
@@ -240,7 +263,7 @@
     showSummary(visible) {
       summaryVisible = visible;
       if (demo && visible) demoSnapshot();
-      else if (visible) void sync(false, true);
+      else if (visible) void (userId ? sync(false, true) : recoverAccount());
     },
     subscribe(listener) { listeners.add(listener); }
   };
